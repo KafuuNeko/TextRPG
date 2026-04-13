@@ -1,4 +1,4 @@
-package org.textrpg.onebot
+package org.textrpg.application.adapter.onebot
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement

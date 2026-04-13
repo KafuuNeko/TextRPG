@@ -1,4 +1,4 @@
-package org.textrpg.application.llm
+package org.textrpg.application.adapter.llm
 
 import com.google.gson.Gson
 import com.google.gson.JsonArray
@@ -8,8 +8,8 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.*
-import org.textrpg.application.config.AppConfig
-import org.textrpg.application.llm.model.LLMMessage
+import org.textrpg.application.adapter.llm.model.LLMMessage
+import org.textrpg.application.data.config.AppConfig
 
 /**
  * OpenAI 兼容的 LLM 客户端

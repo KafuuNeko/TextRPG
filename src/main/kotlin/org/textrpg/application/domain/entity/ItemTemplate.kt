@@ -1,4 +1,4 @@
-package org.textrpg.application.data.entity
+package org.textrpg.application.domain.entity
 
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass

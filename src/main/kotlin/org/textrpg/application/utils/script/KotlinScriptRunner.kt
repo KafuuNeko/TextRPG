@@ -1,4 +1,4 @@
-package org.textrpg.application.script
+package org.textrpg.application.utils.script
 
 import javax.script.ScriptEngineManager
 
@@ -8,35 +8,6 @@ import javax.script.ScriptEngineManager
  * 使用 JSR223 规范执行 Kotlin 脚本，
  * 支持运行时动态执行代码，实现游戏热更新。
  *
- * 可用于：
- * - 自定义技能效果
- * - 复杂的事件逻辑
- * - 剧情脚本
- * - AI 行为脚本
- *
- * @see Effect.CustomScript
- *
- * @example
- * ```kotlin
- * val runner = KotlinScriptRunner()
- *
- * // 验证脚本语法
- * if (runner.validateScript("println(\"Hello\")")) {
- *     println("语法正确")
- * }
- *
- * // 执行脚本
- * val result = runner.executeScript(
- *     script = """
- *         val bonus = player.attributes.strength * 2
- *         target.hp -= bonus
- *         "造成 ${'$'}bonus 点伤害"
- *     """.trimIndent(),
- *     context = mapOf("player" to player, "target" to enemy)
- * )
- *
- * println(result.message)  // 输出: 造成 20 点伤害
- * ```
  */
 class KotlinScriptRunner {
 
@@ -65,20 +36,6 @@ class KotlinScriptRunner {
      * @param context 变量上下文（键值对）
      * @return 执行结果
      *
-     * @example
-     * ```kotlin
-     * val result = runner.executeScript(
-     *     script = """
-     *         val damage = player.attributes.strength * 2
-     *         target.hp -= damage
-     *         "普通攻击造成 ${'$'}damage 点伤害"
-     *     """.trimIndent(),
-     *     context = mapOf(
-     *         "player" to playerInstance,
-     *         "target" to enemyInstance
-     *     )
-     * )
-     * ```
      */
     fun executeScript(script: String, context: Map<String, Any?>): ScriptResult {
         return try {

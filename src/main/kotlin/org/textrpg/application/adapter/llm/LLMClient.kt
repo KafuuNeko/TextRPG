@@ -1,6 +1,6 @@
-package org.textrpg.application.llm
+package org.textrpg.application.adapter.llm
 
-import org.textrpg.application.llm.model.LLMMessage
+import org.textrpg.application.adapter.llm.model.LLMMessage
 
 interface LLMClient {
     suspend fun generate(messages: List<LLMMessage>): Result<String>

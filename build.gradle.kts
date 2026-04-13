@@ -3,7 +3,7 @@ plugins {
     kotlin("plugin.serialization") version "1.9.22"
 }
 
-group = "org.example"
+group = "org.textrpg"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -50,9 +50,6 @@ dependencies {
 
     // Koin DI
     implementation("io.insert-koin:koin-core:3.5.3")
-
-    // OneBot Adapter
-    implementation(project(":onebot-adapter"))
 }
 
 kotlin {

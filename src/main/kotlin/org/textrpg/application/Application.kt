@@ -6,20 +6,20 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import org.textrpg.application.config.AppConfig
-import org.textrpg.application.config.ConfigLoader
-import org.textrpg.application.llm.LLMClient
-import org.textrpg.application.llm.OpenAIClient
-import org.textrpg.application.script.KotlinScriptRunner
-import org.textrpg.onebot.OneBotAdapter
-import org.textrpg.onebot.OneBotConfig as OneBotAdapterConfig
+import org.textrpg.application.adapter.llm.LLMClient
+import org.textrpg.application.adapter.llm.OpenAIClient
+import org.textrpg.application.data.config.AppConfig
+import org.textrpg.application.data.config.ConfigLoader
+import org.textrpg.application.data.databaseModule
+import org.textrpg.application.data.repositoryModule
+import org.textrpg.application.utils.script.KotlinScriptRunner
+import org.textrpg.application.adapter.onebot.OneBotAdapter
+import org.textrpg.application.adapter.onebot.OneBotConfig as OneBotAdapterConfig
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
-import org.textrpg.application.data.databaseModule
-import org.textrpg.application.data.repositoryModule
 
 object Application : KoinComponent {
     private val appModules = module {

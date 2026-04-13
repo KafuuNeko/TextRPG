@@ -1,4 +1,4 @@
-package org.textrpg.application.config
+package org.textrpg.application.data.config
 
 import kotlinx.serialization.Serializable
 import org.yaml.snakeyaml.Yaml

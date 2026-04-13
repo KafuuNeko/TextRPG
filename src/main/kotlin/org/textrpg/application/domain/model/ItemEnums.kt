@@ -1,4 +1,4 @@
-package org.textrpg.application.data.model
+package org.textrpg.application.domain.model
 
 /**
  * 物品类型枚举

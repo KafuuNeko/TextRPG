@@ -1,4 +1,4 @@
-package org.textrpg.onebot
+package org.textrpg.application.adapter.onebot
 
 import io.ktor.client.*
 import kotlinx.coroutines.*

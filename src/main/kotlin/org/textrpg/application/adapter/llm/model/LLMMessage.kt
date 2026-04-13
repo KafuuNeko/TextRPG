@@ -1,4 +1,4 @@
-package org.textrpg.application.llm.model
+package org.textrpg.application.adapter.llm.model
 
 sealed class LLMMessage {
     data class System(val message: String) : LLMMessage()

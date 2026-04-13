@@ -4,7 +4,7 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.textrpg.application.data.database.Players
-import org.textrpg.application.data.entity.PlayerEntity
+import org.textrpg.application.domain.entity.PlayerEntity
 
 /**
  * 玩家领域模型
