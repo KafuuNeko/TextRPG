@@ -3,9 +3,8 @@ package org.textrpg.application.repository.database
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.textrpg.application.config.DatabaseConfig
 
-class DatabaseFactory(private val config: DatabaseConfig) {
+class DatabaseFactory(private val config: org.textrpg.application.config.DatabaseConfig) {
 
     val database: Database by lazy {
         Database.connect(url = config.url, driver = config.driver)
@@ -13,7 +12,13 @@ class DatabaseFactory(private val config: DatabaseConfig) {
 
     fun init() {
         transaction(database) {
-            SchemaUtils.createMissingTablesAndColumns(Players, Items)
+            SchemaUtils.createMissingTablesAndColumns(
+                Players,
+                ItemTemplates,
+                ItemInstances,
+                PlayerInventories,
+                PlayerEquipments
+            )
         }
         println("Database initialized: ${config.url}")
     }
