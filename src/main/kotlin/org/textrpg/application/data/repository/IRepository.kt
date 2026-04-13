@@ -1,4 +1,4 @@
-package org.textrpg.application.repository
+package org.textrpg.application.data.repository
 
 /**
  * 通用仓储接口，定义基础 CRUD 操作
@@ -6,7 +6,7 @@ package org.textrpg.application.repository
  * @param T 实体类型
  * @param ID 实体主键类型
  */
-interface Repository<T, ID> {
+interface IRepository<T, ID> {
     /**
      * 根据 ID 查询单个实体
      *

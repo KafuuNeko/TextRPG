@@ -1,10 +1,10 @@
-package org.textrpg.application.repository
+package org.textrpg.application.data.repository
 
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
-import org.textrpg.application.repository.database.Players
-import org.textrpg.application.repository.entity.PlayerEntity
+import org.textrpg.application.data.database.Players
+import org.textrpg.application.data.entity.PlayerEntity
 
 /**
  * 玩家领域模型
@@ -34,7 +34,7 @@ data class Player(
  *
  * @param database Exposed Database 实例
  */
-class PlayerRepository(private val database: Database) : Repository<Player, Long> {
+class PlayerRepository(private val database: Database) : IRepository<Player, Long> {
 
     /**
      * 根据 ID 查询玩家

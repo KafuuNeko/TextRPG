@@ -1,9 +1,9 @@
-package org.textrpg.application.repository.entity
+package org.textrpg.application.data.entity
 
 import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.dao.LongEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
-import org.textrpg.application.repository.database.ItemInstances
+import org.textrpg.application.data.database.ItemInstances
 
 /**
  * 物品实例 Exposed DAO 实体

@@ -1,9 +1,11 @@
-package org.textrpg.application.repository
+package org.textrpg.application.data
 
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 import org.textrpg.application.config.AppConfig
-import org.textrpg.application.repository.database.DatabaseFactory
+import org.textrpg.application.data.database.DatabaseFactory
+import org.textrpg.application.data.repository.ItemRepository
+import org.textrpg.application.data.repository.PlayerRepository
 
 val databaseModule = module {
     single {

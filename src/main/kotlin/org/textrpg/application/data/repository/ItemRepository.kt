@@ -1,17 +1,17 @@
-package org.textrpg.application.repository
+package org.textrpg.application.data.repository
 
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
-import org.textrpg.application.repository.database.PlayerInventories
-import org.textrpg.application.repository.entity.ItemInstanceEntity
-import org.textrpg.application.repository.entity.ItemTemplateEntity
-import org.textrpg.application.repository.entity.PlayerInventoryEntity
-import org.textrpg.application.repository.model.ItemRarity
-import org.textrpg.application.repository.model.ItemSubType
-import org.textrpg.application.repository.model.ItemType
-import org.textrpg.application.repository.model.SlotType
+import org.textrpg.application.data.database.PlayerInventories
+import org.textrpg.application.data.entity.ItemInstanceEntity
+import org.textrpg.application.data.entity.ItemTemplateEntity
+import org.textrpg.application.data.entity.PlayerInventoryEntity
+import org.textrpg.application.data.model.ItemRarity
+import org.textrpg.application.data.model.ItemSubType
+import org.textrpg.application.data.model.ItemType
+import org.textrpg.application.data.model.SlotType
 
 /**
  * 物品模板——静态配置
@@ -115,7 +115,8 @@ data class PlayerInventoryItem(
  *
  * @param database Exposed Database 实例
  */
-class ItemRepository(private val database: Database) : Repository<PlayerInventoryItem, Long> {
+class ItemRepository(private val database: Database) :
+    IRepository<PlayerInventoryItem, Long> {
 
     // ==================== 物品模板 ====================
 

@@ -18,8 +18,8 @@ import org.koin.core.component.get
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
-import org.textrpg.application.repository.databaseModule
-import org.textrpg.application.repository.repositoryModule
+import org.textrpg.application.data.databaseModule
+import org.textrpg.application.data.repositoryModule
 
 object Application : KoinComponent {
     private val appModules = module {

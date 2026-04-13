@@ -1,4 +1,4 @@
-package org.textrpg.application.repository.database
+package org.textrpg.application.data.database
 
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.dao.id.LongIdTable

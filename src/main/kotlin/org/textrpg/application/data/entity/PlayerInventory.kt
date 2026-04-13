@@ -1,9 +1,9 @@
-package org.textrpg.application.repository.entity
+package org.textrpg.application.data.entity
 
 import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.dao.LongEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
-import org.textrpg.application.repository.database.PlayerInventories
+import org.textrpg.application.data.database.PlayerInventories
 
 /**
  * 玩家背包条目 Exposed DAO 实体

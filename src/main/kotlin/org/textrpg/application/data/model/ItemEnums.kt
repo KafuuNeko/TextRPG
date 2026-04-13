@@ -1,4 +1,4 @@
-package org.textrpg.application.repository.model
+package org.textrpg.application.data.model
 
 /**
  * 物品类型枚举
