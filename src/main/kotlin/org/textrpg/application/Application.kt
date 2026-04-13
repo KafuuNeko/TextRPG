@@ -18,6 +18,8 @@ import org.koin.core.component.get
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import org.textrpg.application.repository.databaseModule
+import org.textrpg.application.repository.repositoryModule
 
 object Application : KoinComponent {
     private val appModules = module {
@@ -52,7 +54,7 @@ object Application : KoinComponent {
     }
 
     init {
-        startKoin { modules(appModules) }
+        startKoin { modules(appModules, databaseModule, repositoryModule) }
     }
 
     suspend fun loop() {
@@ -66,7 +68,12 @@ object Application : KoinComponent {
             }
         }
 
-        adapter.connect()
+        try {
+            adapter.connect()
+        } catch (e: Exception) {
+            println("Connection failed: ${e.localizedMessage}")
+        }
+
     }
 }
 

@@ -33,6 +33,18 @@ dependencies {
     // YAML parsing
     implementation("org.yaml:snakeyaml:2.2")
 
+    // Exposed ORM
+    implementation("org.jetbrains.exposed:exposed-core:0.48.0")
+    implementation("org.jetbrains.exposed:exposed-dao:0.48.0")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.48.0")
+    implementation("org.jetbrains.exposed:exposed-jodatime:0.48.0")
+
+    // SQLite JDBC Driver
+    implementation("org.xerial:sqlite-jdbc:3.45.1.0")
+
+    // Joda-Time (Exposed datetime 依赖)
+    implementation("joda-time:joda-time:2.12.5")
+
     // Test
     testImplementation(kotlin("test"))
 

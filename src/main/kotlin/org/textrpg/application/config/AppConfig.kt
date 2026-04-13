@@ -11,6 +11,21 @@ import java.io.File
 data class AppConfig(
     var bot: OneBotConfig = OneBotConfig(),
     var llm: LLMConfig = LLMConfig(),
+    var database: DatabaseConfig = DatabaseConfig(),
+)
+
+/**
+ * 数据库连接配置
+ *
+ * 支持 SQLite（默认）或任意 JDBC 兼容数据库。
+ *
+ * @property url JDBC 连接字符串，例如 `jdbc:sqlite:textrpg.db` 或 `jdbc:h2:mem:test`
+ * @property driver JDBC 驱动类名
+ */
+@Serializable
+data class DatabaseConfig(
+    var url: String = "jdbc:sqlite:textrpg.db",
+    var driver: String = "org.sqlite.JDBC"
 )
 
 /**

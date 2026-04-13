@@ -8,3 +8,7 @@ llm:
   apiUrl: "http://127.0.0.1:11434/api/generate"
   model: "llama3"
   timeout: 60000
+
+database:
+  url: "jdbc:sqlite:master.sqlite"
+  driver: "org.sqlite.JDBC"
