@@ -1,0 +1,10 @@
+bot:
+  enabled: true
+  websocketUrl: "ws://127.0.0.1:8080"
+  accessToken: ""
+
+llm:
+  enabled: true
+  apiUrl: "http://127.0.0.1:11434/api/generate"
+  model: "llama3"
+  timeout: 60000
