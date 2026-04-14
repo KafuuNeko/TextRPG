@@ -1,0 +1,64 @@
+# ============================================================
+# 属性定义配置
+# ============================================================
+#
+# 引擎不预设任何具体游戏概念（没有硬编码的"HP"或"力量"），
+# 所有属性语义通过此配置赋予。
+#
+# --- 字段说明 ---
+#
+# tier:         属性层级。1 = 一级属性（纯存储值），2 = 二级属性（公式计算值）
+# displayName:  显示名称（用于玩家界面）
+# description:  属性说明文本
+# defaultValue: 初始默认值
+# min / max:    取值范围限制
+# formula:      计算公式（仅二级属性），支持四则运算和属性引用
+# boundMax:     当前值上限绑定的属性 key（值不超过该属性的当前值）
+# triggers:     触发器配置，支持 onDeplete / onThreshold / onCap / onChange
+# regen:        自动回复配置（amount + interval）
+#
+# --- 触发器 action 格式 ---
+#
+# 内置行为:   直接写名称，如 "death"、"block_commands"
+# 脚本扩展:   以 "script:" 前缀指定路径，如 "script:low_hp_warning.kts"
+#
+# --- 配置示例（取消注释即可使用）---
+#
+# attributes:
+#   strength:
+#     tier: 1
+#     displayName: "力量"
+#     description: "物理攻击的基础"
+#     defaultValue: 10
+#     min: 0
+#     max: 9999
+#
+#   max_hp:
+#     tier: 2
+#     displayName: "生命上限"
+#     formula: "constitution * 10 + 50"
+#
+#   current_hp:
+#     tier: 2
+#     displayName: "生命值"
+#     boundMax: "max_hp"
+#     triggers:
+#       onDeplete:
+#         action: "death"
+#       onThreshold:
+#         value: "max_hp * 0.2"
+#         action: "script:low_hp_warning.kts"
+#
+#   action_point:
+#     tier: 1
+#     displayName: "行动力"
+#     defaultValue: 100
+#     min: 0
+#     max: 100
+#     triggers:
+#       onDeplete: "block_commands"
+#     regen:
+#       amount: 10
+#       interval: "5m"
+
+attributes: {}
