@@ -4,10 +4,13 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
+import org.textrpg.application.data.database.PlayerEquipments
 import org.textrpg.application.data.database.PlayerInventories
 import org.textrpg.application.domain.entity.ItemInstanceEntity
 import org.textrpg.application.domain.entity.ItemTemplateEntity
+import org.textrpg.application.domain.entity.PlayerEquipmentEntity
 import org.textrpg.application.domain.entity.PlayerInventoryEntity
+import org.textrpg.application.domain.model.EquipmentSlot
 import org.textrpg.application.domain.model.ItemRarity
 import org.textrpg.application.domain.model.ItemSubType
 import org.textrpg.application.domain.model.ItemType
@@ -100,6 +103,72 @@ data class PlayerInventoryItem(
     val createdAt: DateTime? = null
 ) {
     val isStackable: Boolean get() = instanceId == null
+}
+
+/**
+ * 玩家装备栏
+ *
+ * 记录玩家 8 个装备槽位上的物品实例 ID，null 表示该槽位为空。
+ * 通过 [getSlot] 和 [withSlot] 方法按 [EquipmentSlot] 枚举访问，避免反射。
+ *
+ * @property id 记录主键，新建时传 0
+ * @property playerId 所属玩家 ID
+ * @property slotHead 头部槽位（物品实例 ID）
+ * @property slotChest 胸甲槽位
+ * @property slotWeapon 武器槽位
+ * @property slotOffhand 副手槽位
+ * @property slotRing 戒指槽位
+ * @property slotAmulet 项链槽位
+ * @property slotBoots 鞋子槽位
+ * @property slotGloves 手套槽位
+ */
+data class PlayerEquipment(
+    val id: Long = 0,
+    val playerId: Long,
+    val slotHead: Long? = null,
+    val slotChest: Long? = null,
+    val slotWeapon: Long? = null,
+    val slotOffhand: Long? = null,
+    val slotRing: Long? = null,
+    val slotAmulet: Long? = null,
+    val slotBoots: Long? = null,
+    val slotGloves: Long? = null
+) {
+    /**
+     * 按装备槽位枚举获取对应的物品实例 ID
+     */
+    fun getSlot(slot: EquipmentSlot): Long? = when (slot) {
+        EquipmentSlot.HEAD -> slotHead
+        EquipmentSlot.CHEST -> slotChest
+        EquipmentSlot.WEAPON -> slotWeapon
+        EquipmentSlot.OFFHAND -> slotOffhand
+        EquipmentSlot.RING -> slotRing
+        EquipmentSlot.AMULET -> slotAmulet
+        EquipmentSlot.BOOTS -> slotBoots
+        EquipmentSlot.GLOVES -> slotGloves
+    }
+
+    /**
+     * 返回指定槽位设置为新值后的副本（不可变更新）
+     */
+    fun withSlot(slot: EquipmentSlot, instanceId: Long?): PlayerEquipment = when (slot) {
+        EquipmentSlot.HEAD -> copy(slotHead = instanceId)
+        EquipmentSlot.CHEST -> copy(slotChest = instanceId)
+        EquipmentSlot.WEAPON -> copy(slotWeapon = instanceId)
+        EquipmentSlot.OFFHAND -> copy(slotOffhand = instanceId)
+        EquipmentSlot.RING -> copy(slotRing = instanceId)
+        EquipmentSlot.AMULET -> copy(slotAmulet = instanceId)
+        EquipmentSlot.BOOTS -> copy(slotBoots = instanceId)
+        EquipmentSlot.GLOVES -> copy(slotGloves = instanceId)
+    }
+
+    /**
+     * 获取所有已装备的物品实例 ID 列表
+     */
+    fun allEquippedInstanceIds(): List<Long> = listOfNotNull(
+        slotHead, slotChest, slotWeapon, slotOffhand,
+        slotRing, slotAmulet, slotBoots, slotGloves
+    )
 }
 
 /**
@@ -316,6 +385,70 @@ class ItemRepository(private val database: Database) :
         true
     }
 
+    // ==================== 装备 ====================
+
+    /**
+     * 查询玩家装备栏
+     *
+     * @param playerId 玩家主键
+     * @return 装备栏记录，不存在则返回 null
+     */
+    fun findEquipmentByPlayerId(playerId: Long): PlayerEquipment? = transaction(database) {
+        PlayerEquipmentEntity.find { PlayerEquipments.playerId eq playerId }
+            .firstOrNull()?.toEquipment()
+    }
+
+    /**
+     * 保存装备栏（新增或更新）
+     *
+     * @param equipment 要保存的装备栏记录，id == 0 时为新增
+     * @return 保存后的装备栏
+     */
+    fun saveEquipment(equipment: PlayerEquipment): PlayerEquipment = transaction(database) {
+        if (equipment.id == 0L) {
+            PlayerEquipmentEntity.new {
+                playerId = equipment.playerId
+                slotHead = equipment.slotHead
+                slotChest = equipment.slotChest
+                slotWeapon = equipment.slotWeapon
+                slotOffhand = equipment.slotOffhand
+                slotRing = equipment.slotRing
+                slotAmulet = equipment.slotAmulet
+                slotBoots = equipment.slotBoots
+                slotGloves = equipment.slotGloves
+            }.toEquipment()
+        } else {
+            val existing = PlayerEquipmentEntity.findById(equipment.id)
+                ?: error("Equipment record not found: ${equipment.id}")
+            existing.apply {
+                slotHead = equipment.slotHead
+                slotChest = equipment.slotChest
+                slotWeapon = equipment.slotWeapon
+                slotOffhand = equipment.slotOffhand
+                slotRing = equipment.slotRing
+                slotAmulet = equipment.slotAmulet
+                slotBoots = equipment.slotBoots
+                slotGloves = equipment.slotGloves
+            }.toEquipment()
+        }
+    }
+
+    /**
+     * 统计玩家指定容器的背包条目数
+     *
+     * 用于容量检查，轻量级计数查询。
+     *
+     * @param playerId 玩家主键
+     * @param slotType 容器类型（默认背包）
+     * @return 条目数量
+     */
+    fun countInventorySlots(playerId: Long, slotType: SlotType = SlotType.INVENTORY): Int = transaction(database) {
+        PlayerInventoryEntity.find {
+            (PlayerInventories.playerId eq playerId) and
+            (PlayerInventories.slotType eq slotType.value)
+        }.count().toInt()
+    }
+
     // ==================== 辅助方法 ====================
 
     private fun ItemTemplateEntity.toTemplate() = ItemTemplate(
@@ -341,6 +474,19 @@ class ItemRepository(private val database: Database) :
         sockets = sockets,
         creatorId = creatorId,
         createdAt = createdAt
+    )
+
+    private fun PlayerEquipmentEntity.toEquipment() = PlayerEquipment(
+        id = id.value,
+        playerId = playerId,
+        slotHead = slotHead,
+        slotChest = slotChest,
+        slotWeapon = slotWeapon,
+        slotOffhand = slotOffhand,
+        slotRing = slotRing,
+        slotAmulet = slotAmulet,
+        slotBoots = slotBoots,
+        slotGloves = slotGloves
     )
 
     private fun PlayerInventoryEntity.toInventory() = PlayerInventoryItem(
