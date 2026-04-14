@@ -172,11 +172,11 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
      * @return 被移除的修正器数量
      */
     fun removeModifiersBySource(key: String, source: String): Int {
-        val removed = instances[key]?.removeModifiersBySource(source) ?: 0
-        if (removed > 0) {
-            withTriggerCheck {
-                recalculateAllDerived()
-            }
+        val instance = instances[key] ?: return 0
+        var removed = 0
+        withTriggerCheck {
+            removed = instance.removeModifiersBySource(source)
+            if (removed > 0) recalculateAllDerived()
         }
         return removed
     }
@@ -189,14 +189,12 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
      * @param source 来源标识（如 "equipment:slot_weapon"）
      */
     fun removeAllModifiersBySource(source: String) {
-        var anyRemoved = false
-        instances.values.forEach {
-            if (it.removeModifiersBySource(source) > 0) anyRemoved = true
-        }
-        if (anyRemoved) {
-            withTriggerCheck {
-                recalculateAllDerived()
+        withTriggerCheck {
+            var anyRemoved = false
+            instances.values.forEach {
+                if (it.removeModifiersBySource(source) > 0) anyRemoved = true
             }
+            if (anyRemoved) recalculateAllDerived()
         }
     }
 
@@ -206,8 +204,8 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
      * @param key 属性标识符
      */
     fun clearModifiers(key: String) {
-        instances[key]?.clearModifiers()
         withTriggerCheck {
+            instances[key]?.clearModifiers()
             recalculateAllDerived()
         }
     }

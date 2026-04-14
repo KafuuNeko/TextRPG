@@ -1,0 +1,73 @@
+# ============================================================
+# 指令定义配置
+# ============================================================
+#
+# 指令系统完全配置驱动，所有指令通过此文件注册。
+#
+# --- 字段说明 ---
+#
+# commandPrefix:  指令前缀（默认 "/"）
+# commands:       指令定义映射
+#   <key>:        指令唯一标识符
+#     displayName:  显示名称
+#     aliases:      别名列表（玩家可用别名触发）
+#     description:  指令说明
+#     params:       参数定义列表
+#       - name:     参数名
+#         type:     参数类型（string / int / double）
+#         required: 是否必填
+#     handler:      处理器标识
+#                   "builtin:xxx"    → 内置处理器
+#                   "script:xxx.kts" → 脚本处理器
+#     requires:     前置条件（可选）
+#       registered:    是否需要已注册
+#       minAttribute:  属性最低值 { key: value }
+#       inSession:     需要处于指定会话
+#       notInSession:  需要不在任何会话中
+#       atNodeTag:     需要所在节点有指定标签
+#       hasItem:       需要持有物品 { itemId: quantity }
+#       hasBuff:       需要拥有 Buff
+#       notHasBuff:    不能拥有 Buff
+#     cost:         属性消耗 { key: amount }（执行前扣除）
+#
+# --- 配置示例（取消注释即可使用） ---
+#
+# commands:
+#   register:
+#     displayName: "注册"
+#     aliases: ["注册", "reg"]
+#     description: "注册新角色"
+#     handler: "builtin:register"
+#
+#   status:
+#     displayName: "查看状态"
+#     aliases: ["状态", "st", "info"]
+#     description: "查看角色当前属性"
+#     handler: "builtin:status"
+#     requires:
+#       registered: true
+#
+#   help:
+#     displayName: "帮助"
+#     aliases: ["帮助", "h", "?"]
+#     description: "查看可用指令列表"
+#     handler: "builtin:help"
+#
+#   move:
+#     displayName: "移动"
+#     aliases: ["移动", "go", "走", "往"]
+#     params:
+#       - name: "target"
+#         type: "string"
+#         required: true
+#     handler: "builtin:move"
+#     requires:
+#       registered: true
+#       notInSession: true
+#       minAttribute:
+#         action_point: 5
+#     cost:
+#       action_point: 5
+
+commandPrefix: "/"
+commands: {}
