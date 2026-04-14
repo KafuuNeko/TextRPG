@@ -1,0 +1,39 @@
+# ============================================================
+# Buff / 状态异常定义配置
+# ============================================================
+# 本文件定义游戏中的所有 Buff 和状态异常。
+# Buff 本质上是"挂在实体身上的、会随回合触发的 Effect 集合 + 持续性属性修正器"。
+#
+# Buff 生命周期：
+#   施加 → 检查叠加策略 → 挂载 modifiers → 触发 onApply
+#   每回合结束 → 执行 tickEffects → duration -1 → 过期则移除
+#   移除 → 回滚 modifiers → 触发 onRemove
+#
+# 格式说明：
+#   buffs:
+#     buff_key:
+#       displayName: "显示名称"
+#       description: "Buff 描述"
+#       maxStacks: 5                      # 最大叠加层数
+#       duration: 3                       # 持续回合数（-1 = 永久）
+#       stackPolicy: "stack"              # refresh / stack / independent
+#       modifiers:                        # 持续期间生效的属性修正器
+#         - attribute: "属性key"
+#           type: "flat"                  # flat / percent
+#           value: -10                    # 单层修正值（STACK 下 * stacks）
+#       tickEffects:                      # 每回合触发的周期效果
+#         - type: "modify_attribute"
+#           target: "self"
+#           attribute: "current_hp"
+#           amount: "-10 * stacks"        # 公式中可引用 stacks 变量
+#       onApply: "scripts/xxx.kts"        # 可选：施加时脚本
+#       onRemove: null                    # 可选：移除时脚本
+#       onStack: null                     # 可选：叠加时脚本（仅 STACK 策略）
+#
+# 叠加策略说明：
+#   refresh     - 重复施加刷新持续时间，不增加层数
+#   stack       - 层数递增（直到 maxStacks），修正器和效果随层数增强
+#   independent - 每次施加独立存在，各自计时
+# ============================================================
+
+buffs: {}
