@@ -1,0 +1,16 @@
+# NPC 定义
+# npcs:
+#   npc_key:
+#     displayName: "显示名称"
+#     description: "NPC描述"
+#     location: "node_key"
+#     prompt: "AI对话角色Prompt"
+#     functions:
+#       - type: "shop"
+#         shop_id: "store_id"
+#       - type: "dialogue"
+#       - type: "quest_giver"
+#         quest_ids: "quest_id"
+#     allowedTools: []
+
+npcs: {}

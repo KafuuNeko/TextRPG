@@ -1,0 +1,39 @@
+# ============================================================
+# AI Agent 配置
+# ============================================================
+# aiSafety: 安全限制配置
+#   enabled: true              # 是否启用安全限制（默认 true）
+#   presetSystemPrompt: true   # 是否注入框架预置安全 Prompt
+#   customSafetyRules: []      # 追加的自定义安全规则
+#   # WARNING: 关闭安全限制后，框架不对 AI 生成内容的安全性负责。
+#
+# aiScenes: AI 场景配置
+#   场景名:
+#     allowedTools: ["tool1", "tool2"]   # 该场景允许 AI 调用的工具
+#     promptTemplate: "..."              # 场景 Prompt 模板
+#
+# 内置场景：
+#   npc_dialogue    - NPC 对话
+#   boss_combat     - Boss AI 决策
+#   world_generation - 创世/动态生成
+#   character_creation - 角色创建
+# ============================================================
+
+aiSafety:
+  enabled: true
+  presetSystemPrompt: true
+  customSafetyRules: []
+
+aiScenes:
+  npc_dialogue:
+    allowedTools:
+      - "send_message"
+  boss_combat:
+    allowedTools:
+      - "cast_skill"
+      - "send_message"
+  world_generation:
+    allowedTools:
+      - "create_node"
+      - "create_npc"
+      - "create_item_template"

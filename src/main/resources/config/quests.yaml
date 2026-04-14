@@ -1,0 +1,23 @@
+# 任务定义
+# quests:
+#   quest_key:
+#     displayName: "任务名称"
+#     description: "任务描述"
+#     giver: "npc_key"
+#     objectives:
+#       - type: "collect_item"   # collect_item / kill_enemy / reach_node / talk_to_npc / script
+#         item: "item_id"
+#         quantity: 5
+#     rewards:
+#       exp: 50
+#       items:
+#         - item: "gold_coin"
+#           quantity: 100
+#       attributeChange:
+#         reputation: 10
+#     requires:
+#       minAttribute: { level: 1 }
+#     unlocks:
+#       quests: ["next_quest_id"]
+
+quests: {}

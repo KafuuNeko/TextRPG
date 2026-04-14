@@ -1,0 +1,16 @@
+# 地图节点定义（有向图）
+# nodes:
+#   node_key:
+#     displayName: "显示名称"
+#     description: "节点描述"
+#     tags: ["safe_zone", "shop"]
+#     connections:
+#       - target: "other_node_key"
+#         display: "→ 前往xxx"
+#         requires: { minAttribute: { level: 3 } }
+#     entities:
+#       npcs: ["npc_id"]
+#       enemies: ["enemy_id"]
+#     isBoundary: false
+
+nodes: {}
