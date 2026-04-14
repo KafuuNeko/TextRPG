@@ -1,0 +1,25 @@
+# ============================================================
+# 战斗系统配置
+# ============================================================
+# combat: 全局战斗公式和参数
+# enemies: 敌人定义
+#
+# 公式中可使用的前缀引用：
+#   attacker.xxx  - 攻击者属性
+#   defender.xxx  - 防御者属性
+#   self.xxx      - 自身属性（AI 条件中使用）
+#   target.xxx    - 目标属性（AI 条件中使用）
+#   random(N)     - 0 到 N-1 的随机数
+#
+# AI 规则：按 priority 降序检查，首个 condition > 0 的规则触发
+#   condition: "1" 等价于 "true"，始终满足（可用作默认行为）
+# ============================================================
+
+combat:
+  damageFormula: "attacker.physical_attack - defender.defense * 0.5"
+  critCheck: "random(100) - attacker.crit_rate"
+  critMultiplier: 1.5
+  minDamage: 1
+  defaultTimeoutSeconds: 60
+
+enemies: {}
