@@ -1,0 +1,47 @@
+# ============================================================
+# 技能定义配置
+# ============================================================
+# 本文件定义游戏中的所有技能。技能是框架的"万物皆技能"抽象——
+# 普通攻击、魔法、使用消耗品都统一为技能定义，共享相同的执行管道。
+#
+# 技能执行管道：
+#   Requires 校验 → Cooldown 检查 → Cost 扣除 → Effects 执行 → 记录 Cooldown
+#
+# 格式说明：
+#   skills:
+#     技能key:
+#       displayName: "显示名称"
+#       description: "技能描述"
+#       requires:                          # 前置条件（与指令系统共用）
+#         registered: true                 # 是否需要注册
+#         minAttribute: { mp: 25 }         # 属性最低值
+#         notHasBuff: "silenced"           # 不能有指定 Buff
+#       cost:                              # 属性消耗
+#         mp: 25
+#       cooldown: 2                        # 冷却回合数（0 = 无冷却）
+#       effects:                           # 效果列表（按顺序执行）
+#         - type: "modify_attribute"       # 效果类型（参见 BuiltinEffectType）
+#           target: "target"               # 目标选择器（self/target/all_enemies/...）
+#           attribute: "current_hp"        # 目标属性
+#           amount: "-(strength * 2 + 30)" # 数值公式（支持属性引用）
+#       customScript: "scripts/xxx.kts"    # 可选：效果执行后运行的脚本
+#
+# 内置效果类型（BuiltinEffectType）：
+#   modify_attribute  - 修改属性值（加减）
+#   set_attribute     - 直接设置属性值
+#   add_modifier      - 挂载属性修正器
+#   remove_modifier   - 移除属性修正器
+#   add_buff          - 添加 Buff
+#   remove_buff       - 移除 Buff
+#   teleport          - 传送到地图节点
+#   send_message      - 发送消息
+#   give_item         - 给予物品
+#   remove_item       - 移除物品
+#   start_session     - 启动会话
+#   run_script        - 执行脚本
+#
+# 目标选择器（TargetSelector）：
+#   self / target / all_enemies / all_allies / random_enemy / random_ally / all
+# ============================================================
+
+skills: {}

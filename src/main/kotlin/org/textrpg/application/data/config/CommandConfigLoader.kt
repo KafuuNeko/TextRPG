@@ -98,37 +98,12 @@ object CommandConfigLoader {
     }
 
     /**
-     * 解析前置条件
+     * 解析前置条件（委托给 [RequiresParser]）
      */
-    @Suppress("UNCHECKED_CAST")
-    private fun parseRequires(raw: Any?): RequiresDefinition {
-        val map = raw as? Map<String, Any> ?: return RequiresDefinition()
-        return RequiresDefinition(
-            registered = map["registered"] as? Boolean,
-            minAttribute = (map["minAttribute"] as? Map<String, Any>)
-                ?.mapValues { (_, v) -> toDouble(v) ?: 0.0 },
-            inSession = map["inSession"] as? String,
-            notInSession = map["notInSession"] as? Boolean,
-            atNodeTag = map["atNodeTag"] as? String,
-            hasItem = (map["hasItem"] as? Map<String, Any>)
-                ?.mapValues { (_, v) -> (v as? Number)?.toInt() ?: 1 },
-            hasBuff = map["hasBuff"] as? String,
-            notHasBuff = map["notHasBuff"] as? String
-        )
-    }
+    private fun parseRequires(raw: Any?): RequiresDefinition = RequiresParser.parseRequires(raw)
 
     /**
-     * 解析消耗配置（属性 key -> 消耗量）
+     * 解析消耗配置（委托给 [RequiresParser]）
      */
-    @Suppress("UNCHECKED_CAST")
-    private fun parseCost(raw: Any?): Map<String, Double> {
-        val map = raw as? Map<String, Any> ?: return emptyMap()
-        return map.mapValues { (_, v) -> toDouble(v) ?: 0.0 }
-    }
-
-    private fun toDouble(value: Any?): Double? = when (value) {
-        is Number -> value.toDouble()
-        is String -> value.toDoubleOrNull()
-        else -> null
-    }
+    private fun parseCost(raw: Any?): Map<String, Double> = RequiresParser.parseCost(raw)
 }
