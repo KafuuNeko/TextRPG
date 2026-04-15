@@ -1,6 +1,11 @@
 plugins {
     kotlin("jvm") version "1.9.22"
     kotlin("plugin.serialization") version "1.9.22"
+    application
+}
+
+application {
+    mainClass.set("org.textrpg.application.ApplicationKt")
 }
 
 group = "org.textrpg"
@@ -58,4 +63,9 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.named<JavaExec>("run") {
+    standardInput = System.`in`
+    jvmArgs("-Dfile.encoding=UTF-8", "-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8")
 }

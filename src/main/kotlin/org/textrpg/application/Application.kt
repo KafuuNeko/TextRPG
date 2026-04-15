@@ -166,27 +166,12 @@ object Application : KoinComponent {
             aiConfig = aiConfig
         )
 
-        // ========== OneBot 消息监听 ==========
-        adapter.registerMessageListener { event ->
-            val rawText = event.getPlainText().trim()
-            if (rawText.isBlank()) return@registerMessageListener
-
-            val bindAccount = event.userId
-
-            val replier: suspend (String) -> Unit = { msg ->
-                val gid = event.groupId
-                if (event.isGroup && gid != null) {
-                    adapter.sendGroupMessage(gid, msg)
-                } else {
-                    adapter.sendPrivateMessage(event.userId, msg)
-                }
-            }
-
-            gameScope.launch {
+        // ========== 消息处理核心（OneBot / 控制台共用） ==========
+        val processMessage: suspend (String, String, suspend (String) -> Unit) -> Unit =
+            { rawText, bindAccount, replier ->
                 try {
                     val context = playerManager.getContext(bindAccount, replier)
                     val result = commandRouter.processMessage(rawText, context)
-
                     when (result) {
                         is CommandResult.Success -> result.response?.let { replier(it) }
                         is CommandResult.RequireFailed -> replier(result.message)
@@ -196,17 +181,64 @@ object Application : KoinComponent {
                         is CommandResult.NotCommand -> {}
                     }
                 } catch (e: Exception) {
-                    println("消息处理异常 [${event.userId}]: ${e.message}")
+                    println("消息处理异常 [$bindAccount]: ${e.message}")
                     e.printStackTrace()
                 }
             }
-        }
 
-        println("TextRPG 启动完成，等待连接...")
-        try {
-            adapter.connect()
-        } catch (e: Exception) {
-            println("连接失败: ${e.localizedMessage}")
+        val appConfig: AppConfig = get()
+
+        if (appConfig.bot.enabled) {
+            // ========== OneBot 模式 ==========
+            adapter.registerMessageListener { event ->
+                val rawText = event.getPlainText().trim()
+                if (rawText.isBlank()) return@registerMessageListener
+                val bindAccount = event.userId
+                val replier: suspend (String) -> Unit = { msg ->
+                    val gid = event.groupId
+                    if (event.isGroup && gid != null) {
+                        adapter.sendGroupMessage(gid, msg)
+                    } else {
+                        adapter.sendPrivateMessage(event.userId, msg)
+                    }
+                }
+                gameScope.launch { processMessage(rawText, bindAccount, replier) }
+            }
+
+            println("TextRPG 启动完成，等待 OneBot 连接...")
+            try {
+                adapter.connect()
+            } catch (e: Exception) {
+                println("OneBot 连接失败: ${e.localizedMessage}")
+                println("提示：将 app.yaml 中 bot.enabled 设为 false 可进入控制台模式")
+            }
+        } else {
+            // ========== 控制台模式 ==========
+            println("━━━━━━━━━━━━━━━━━━━━━━━━")
+            println("  TextRPG 控制台模式")
+            println("━━━━━━━━━━━━━━━━━━━━━━━━")
+            println("直接输入指令即可游玩（如 /注册 勇者）")
+            println("输入 quit 退出")
+            println()
+
+            val consoleBindAccount = "console_player"
+            val consolePrinter: suspend (String) -> Unit = { msg -> println(msg) }
+            val reader = java.io.BufferedReader(java.io.InputStreamReader(System.`in`, Charsets.UTF_8))
+
+            while (true) {
+                print("> ")
+                System.out.flush()
+                val line = try { reader.readLine() } catch (_: Exception) { null }
+                if (line == null) break
+                val trimmed = line.trim()
+                if (trimmed.equals("quit", ignoreCase = true) || trimmed.equals("exit", ignoreCase = true)) {
+                    playerManager.saveAll()
+                    println("已保存数据，再见！")
+                    break
+                }
+                if (trimmed.isBlank()) continue
+                processMessage(trimmed, consoleBindAccount, consolePrinter)
+            }
         }
     }
 

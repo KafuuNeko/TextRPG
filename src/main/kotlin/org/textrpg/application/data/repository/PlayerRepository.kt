@@ -1,6 +1,7 @@
 package org.textrpg.application.data.repository
 
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.textrpg.application.data.database.Players
@@ -87,13 +88,14 @@ class PlayerRepository(private val database: Database) : IRepository<Player, Lon
     override fun save(entity: Player): Player = transaction(database) {
         if (entity.id == 0L) {
             val now = DateTime.now()
-            PlayerEntity.new {
-                name = entity.name
-                bindAccount = entity.bindAccount
-                attributeData = entity.attributeData
-                createdAt = now
-                updatedAt = now
-            }.toPlayer()
+            val id = Players.insertAndGetId {
+                it[name] = entity.name
+                it[bindAccount] = entity.bindAccount
+                it[attributeData] = entity.attributeData
+                it[createdAt] = now
+                it[updatedAt] = now
+            }
+            entity.copy(id = id.value, createdAt = now, updatedAt = now)
         } else {
             val existing = PlayerEntity.findById(entity.id)
                 ?: error("Player not found: ${entity.id}")

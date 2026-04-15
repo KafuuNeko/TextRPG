@@ -2,8 +2,11 @@ package org.textrpg.application.data.repository
 
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
+import org.textrpg.application.data.database.ItemInstances
+import org.textrpg.application.data.database.ItemTemplates
 import org.textrpg.application.data.database.PlayerEquipments
 import org.textrpg.application.data.database.PlayerInventories
 import org.textrpg.application.domain.entity.ItemInstanceEntity
@@ -216,17 +219,18 @@ class ItemRepository(private val database: Database) :
      */
     fun saveTemplate(template: ItemTemplate): ItemTemplate = transaction(database) {
         if (template.id == 0) {
-            ItemTemplateEntity.new {
-                name = template.name
-                type = template.type.value
-                subType = template.subType.value
-                rarity = template.rarity.value
-                stackable = template.stackable
-                baseStats = template.baseStats
-                levelReq = template.levelReq
-                price = template.price
-                description = template.description
-            }.toTemplate()
+            val id = ItemTemplates.insertAndGetId {
+                it[name] = template.name
+                it[type] = template.type.value
+                it[subType] = template.subType.value
+                it[rarity] = template.rarity.value
+                it[stackable] = template.stackable
+                it[baseStats] = template.baseStats
+                it[levelReq] = template.levelReq
+                it[price] = template.price
+                it[description] = template.description
+            }
+            template.copy(id = id.value)
         } else {
             val existing = ItemTemplateEntity.findById(template.id)
                 ?: error("Template not found: ${template.id}")
@@ -278,11 +282,13 @@ class ItemRepository(private val database: Database) :
      * @return 创建后的实例（含数据库生成的主键）
      */
     fun createInstance(templateId: Int, creatorId: Long? = null): ItemInstance = transaction(database) {
-        ItemInstanceEntity.new {
-            this.templateId = templateId
-            this.creatorId = creatorId
-            createdAt = DateTime.now()
-        }.toInstance()
+        val now = DateTime.now()
+        val id = ItemInstances.insertAndGetId {
+            it[ItemInstances.templateId] = templateId
+            it[ItemInstances.creatorId] = creatorId
+            it[ItemInstances.createdAt] = now
+        }
+        ItemInstance(id = id.value, templateId = templateId, creatorId = creatorId, createdAt = now)
     }
 
     /**
@@ -375,16 +381,18 @@ class ItemRepository(private val database: Database) :
      */
     override fun save(entity: PlayerInventoryItem): PlayerInventoryItem = transaction(database) {
         if (entity.id == 0L) {
-            PlayerInventoryEntity.new {
-                playerId = entity.playerId
-                templateId = entity.templateId
-                instanceId = entity.instanceId
-                quantity = entity.quantity
-                slotType = entity.slotType.value
-                slotIndex = entity.slotIndex
-                isBound = entity.isBound
-                createdAt = DateTime.now()
-            }.toInventory()
+            val now = DateTime.now()
+            val id = PlayerInventories.insertAndGetId {
+                it[playerId] = entity.playerId
+                it[templateId] = entity.templateId
+                it[instanceId] = entity.instanceId
+                it[quantity] = entity.quantity
+                it[slotType] = entity.slotType.value
+                it[slotIndex] = entity.slotIndex
+                it[isBound] = entity.isBound
+                it[createdAt] = now
+            }
+            entity.copy(id = id.value, createdAt = now)
         } else {
             val existing = PlayerInventoryEntity.findById(entity.id)
                 ?: error("Inventory item not found: ${entity.id}")
@@ -430,17 +438,18 @@ class ItemRepository(private val database: Database) :
      */
     fun saveEquipment(equipment: PlayerEquipment): PlayerEquipment = transaction(database) {
         if (equipment.id == 0L) {
-            PlayerEquipmentEntity.new {
-                playerId = equipment.playerId
-                slotHead = equipment.slotHead
-                slotChest = equipment.slotChest
-                slotWeapon = equipment.slotWeapon
-                slotOffhand = equipment.slotOffhand
-                slotRing = equipment.slotRing
-                slotAmulet = equipment.slotAmulet
-                slotBoots = equipment.slotBoots
-                slotGloves = equipment.slotGloves
-            }.toEquipment()
+            val id = PlayerEquipments.insertAndGetId {
+                it[playerId] = equipment.playerId
+                it[slotHead] = equipment.slotHead
+                it[slotChest] = equipment.slotChest
+                it[slotWeapon] = equipment.slotWeapon
+                it[slotOffhand] = equipment.slotOffhand
+                it[slotRing] = equipment.slotRing
+                it[slotAmulet] = equipment.slotAmulet
+                it[slotBoots] = equipment.slotBoots
+                it[slotGloves] = equipment.slotGloves
+            }
+            equipment.copy(id = id.value)
         } else {
             val existing = PlayerEquipmentEntity.findById(equipment.id)
                 ?: error("Equipment record not found: ${equipment.id}")
