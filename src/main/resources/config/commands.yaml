@@ -70,4 +70,22 @@
 #       action_point: 5
 
 commandPrefix: "/"
-commands: {}
+
+commands:
+  register:
+    displayName: "注册"
+    aliases: ["注册", "reg"]
+    description: "注册新角色"
+    params:
+      - name: "name"
+        type: "string"
+        required: true
+    handler: "builtin:register"
+
+  status:
+    displayName: "查看状态"
+    aliases: ["状态", "st", "info"]
+    description: "查看角色当前属性"
+    handler: "builtin:status"
+    requires:
+      registered: true

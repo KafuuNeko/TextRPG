@@ -61,4 +61,101 @@
 #       amount: 10
 #       interval: "5m"
 
-attributes: {}
+attributes:
+  # ========== 一级属性（直接存储） ==========
+
+  strength:
+    tier: 1
+    displayName: "力量"
+    description: "物理攻击的基础"
+    defaultValue: 10
+    min: 0
+    max: 9999
+
+  agility:
+    tier: 1
+    displayName: "敏捷"
+    description: "影响暴击率与闪避"
+    defaultValue: 10
+    min: 0
+    max: 9999
+
+  constitution:
+    tier: 1
+    displayName: "体质"
+    description: "生命值的基础"
+    defaultValue: 10
+    min: 0
+    max: 9999
+
+  intelligence:
+    tier: 1
+    displayName: "智力"
+    description: "魔法攻击与魔力的基础"
+    defaultValue: 10
+    min: 0
+    max: 9999
+
+  level:
+    tier: 1
+    displayName: "等级"
+    description: "角色等级"
+    defaultValue: 1
+    min: 1
+    max: 999
+
+  exp:
+    tier: 1
+    displayName: "经验值"
+    description: "累计经验"
+    defaultValue: 0
+    min: 0
+    max: 99999999
+
+  gold:
+    tier: 1
+    displayName: "金币"
+    description: "通用货币"
+    defaultValue: 50
+    min: 0
+    max: 99999999
+
+  # ========== 二级属性（公式派生） ==========
+
+  max_hp:
+    tier: 2
+    displayName: "生命上限"
+    formula: "constitution * 10 + 50"
+
+  current_hp:
+    tier: 2
+    displayName: "生命值"
+    boundMax: "max_hp"
+    triggers:
+      onDeplete:
+        action: "death"
+
+  max_mp:
+    tier: 2
+    displayName: "魔力上限"
+    formula: "intelligence * 5 + 20"
+
+  current_mp:
+    tier: 2
+    displayName: "魔力值"
+    boundMax: "max_mp"
+
+  physical_attack:
+    tier: 2
+    displayName: "物理攻击"
+    formula: "strength * 2"
+
+  magic_attack:
+    tier: 2
+    displayName: "魔法攻击"
+    formula: "intelligence * 2"
+
+  defense:
+    tier: 2
+    displayName: "防御"
+    formula: "constitution + agility * 0.5"
