@@ -1,5 +1,6 @@
 package org.textrpg.application.game.combat
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import org.textrpg.application.domain.model.AttributeDefinition
 import org.textrpg.application.domain.model.BuffDefinition
@@ -12,6 +13,8 @@ import org.textrpg.application.game.effect.EffectEngine
 import org.textrpg.application.game.effect.EntityAccessor
 import org.textrpg.application.game.skill.CooldownManager
 import org.textrpg.application.game.skill.SkillEngine
+
+private val log = KotlinLogging.logger {}
 
 /**
  * 战斗会话工厂
@@ -69,7 +72,7 @@ class CombatSessionFactory(
     ): CombatSession? {
         val enemyDef = enemyDefinitions[enemyId]
         if (enemyDef == null) {
-            println("Warning: Enemy definition not found: $enemyId")
+            log.warn { "Enemy definition not found: $enemyId" }
             return null
         }
 
@@ -168,12 +171,10 @@ class CombatSessionFactory(
         }
 
         // 创建新的容器（基于属性定义），并从 playerEntity 同步当前属性值
+        // EntityAccessor.getAttributeValue 约定不抛异常（未知 key 返回 0.0），无需 try-catch
         val attrContainer = org.textrpg.application.game.attribute.AttributeContainer(attributeDefinitions)
         for (key in attrContainer.getAllKeys()) {
-            try {
-                val value = playerEntity.getAttributeValue(key)
-                attrContainer.setBaseValue(key, value)
-            } catch (_: Exception) { /* 属性不存在，跳过 */ }
+            attrContainer.setBaseValue(key, playerEntity.getAttributeValue(key))
         }
 
         val buffMgr = org.textrpg.application.game.buff.BuffManager(buffDefinitions, attrContainer)

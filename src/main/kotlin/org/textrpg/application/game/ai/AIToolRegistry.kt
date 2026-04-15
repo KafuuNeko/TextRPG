@@ -3,16 +3,34 @@ package org.textrpg.application.game.ai
 import org.textrpg.application.adapter.llm.model.ToolDefinition
 
 /**
+ * AI 工具运行时上下文
+ *
+ * 承载工具执行所需的"按调用注入"的依赖（如消息发送通道、当前会话引用等）。
+ * 与 [AIToolHandler.definition] 的"静态描述"分离——后者用来告诉 LLM 工具的能力，
+ * 本类用来让工具实际产生副作用。
+ *
+ * 典型场景：[BuiltinAITools.send_message] 收到 LLM 调用后，需要通过 [messageSink]
+ * 把文本真正发送给玩家；纯查询/创建类工具（如 `create_node`）不需要 context，传 null 即可。
+ *
+ * @property messageSink 把 AI 想发的消息推送给目标（玩家/会话），null 表示退化为返回字符串
+ */
+data class AIToolContext(
+    val messageSink: (suspend (String) -> Unit)? = null
+)
+
+/**
  * AI 工具处理器
  *
  * 将工具定义（描述给 LLM）和执行逻辑绑定在一起。
  *
  * @property definition 工具定义（传给 LLM 的描述信息）
- * @property handler 工具执行函数（接收参数映射，返回结果文本）
+ * @property handler 工具执行函数。第一个参数是 LLM 提供的 JSON 参数映射；
+ *   第二个参数是可选的运行时上下文（[AIToolContext]），需要副作用的工具据此发送消息等。
+ *   返回结果文本将作为 `role=tool` 消息回传给 LLM。
  */
 data class AIToolHandler(
     val definition: ToolDefinition,
-    val handler: suspend (Map<String, Any?>) -> String
+    val handler: suspend (args: Map<String, Any?>, context: AIToolContext?) -> String
 )
 
 /**
@@ -25,7 +43,11 @@ data class AIToolHandler(
  * ```kotlin
  * registry.register("send_message", AIToolHandler(
  *     definition = ToolDefinition(name = "send_message", description = "发送消息", ...),
- *     handler = { args -> "消息已发送: ${args["message"]}" }
+ *     handler = { args, ctx ->
+ *         val text = args["message"]?.toString() ?: ""
+ *         ctx?.messageSink?.invoke(text)
+ *         text
+ *     }
  * ))
  *
  * // 获取某场景的可用工具定义（传给 LLM）
@@ -77,13 +99,14 @@ class AIToolRegistry {
      * @param name 工具名称
      * @param arguments 工具参数
      * @param allowedTools 当前场景的工具白名单
+     * @param context 运行时上下文（可选）；副作用类工具（如 send_message）需要它才能真正生效
      * @return 执行结果文本
-     * @throws SecurityException 工具不在白名单中时
      */
     suspend fun executeTool(
         name: String,
         arguments: Map<String, Any?>,
-        allowedTools: List<String>
+        allowedTools: List<String>,
+        context: AIToolContext? = null
     ): String {
         // 权限检查
         if (name !in allowedTools) {
@@ -93,10 +116,7 @@ class AIToolRegistry {
         val handler = tools[name]
             ?: return "Error: Tool '$name' is not registered"
 
-        return try {
-            handler.handler(arguments)
-        } catch (e: Exception) {
-            "Error executing tool '$name': ${e.message}"
-        }
+        return runCatching { handler.handler(arguments, context) }
+            .getOrElse { e -> "Error executing tool '$name': ${e.message}" }
     }
 }

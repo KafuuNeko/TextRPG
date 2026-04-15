@@ -1,6 +1,22 @@
 package org.textrpg.application.domain.model
 
 /**
+ * 战斗系统使用的属性 key 约定
+ *
+ * 框架层不硬编码具体属性名——通过配置可让范例使用任意命名（如 `hp`/`mp`/`xp`）。
+ * 默认值采用项目惯例（`current_hp` / `max_hp` / `exp`），范例不修改即可直接用。
+ *
+ * @property currentHp 当前生命值属性 key（用于胜负判定、显示）
+ * @property maxHp 最大生命值属性 key（用于显示）
+ * @property exp 经验值属性 key（用于战斗结算给经验）
+ */
+data class CombatAttributeKeys(
+    val currentHp: String = "current_hp",
+    val maxHp: String = "max_hp",
+    val exp: String = "exp"
+)
+
+/**
  * 战斗全局配置
  *
  * 定义战斗系统的通用公式和参数。公式中可使用前缀引用：
@@ -14,6 +30,7 @@ package org.textrpg.application.domain.model
  * @property minDamage 最低伤害值
  * @property fleeCheck 逃跑判定公式（结果 > 0 表示成功，null 表示不允许逃跑）
  * @property defaultTimeoutSeconds 玩家输入超时秒数
+ * @property attributeKeys 框架层使用的属性 key 约定（默认遵循项目惯例，范例可覆盖）
  */
 data class CombatConfig(
     val damageFormula: String = "attacker.physical_attack - defender.defense * 0.5",
@@ -21,7 +38,8 @@ data class CombatConfig(
     val critMultiplier: Double = 1.5,
     val minDamage: Double = 1.0,
     val fleeCheck: String? = null,
-    val defaultTimeoutSeconds: Long = 60
+    val defaultTimeoutSeconds: Long = 60,
+    val attributeKeys: CombatAttributeKeys = CombatAttributeKeys()
 )
 
 /**

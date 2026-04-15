@@ -1,8 +1,6 @@
 package org.textrpg.application.data.config
 
 import org.textrpg.application.domain.model.*
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 /**
  * 属性配置加载器
@@ -23,34 +21,15 @@ import java.io.File
  *
  * @see AttributeDefinition
  */
-object AttributeConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/attributes.yaml"
+object AttributeConfigLoader : AbstractYamlLoader<Map<String, AttributeDefinition>>() {
+    override val defaultPath = "src/main/resources/config/attributes.yaml"
+    override val default: Map<String, AttributeDefinition> = emptyMap()
+    override val configName = "Attribute"
 
-    /**
-     * 从指定路径加载属性配置
-     *
-     * 解析 YAML 文件中 `attributes` 节点下的所有属性定义，
-     * 每个 key 作为属性标识符，对应的 value 映射为 [AttributeDefinition]。
-     *
-     * @param path YAML 配置文件路径（默认 [DEFAULT_PATH]）
-     * @return 属性定义映射（key -> [AttributeDefinition]），加载失败或文件不存在时返回空 Map
-     */
-    fun load(path: String = DEFAULT_PATH): Map<String, AttributeDefinition> {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: Attribute config not found at $path, using empty definitions")
-            return emptyMap()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return emptyMap()
-            @Suppress("UNCHECKED_CAST")
-            val attributes = raw["attributes"] as? Map<String, Map<String, Any>> ?: return emptyMap()
-            attributes.mapValues { (key, props) -> parseDefinition(key, props) }
-        } catch (e: Exception) {
-            println("Warning: Failed to load attribute config from $path: ${e.message}")
-            emptyMap()
-        }
+    override fun parse(raw: Map<String, Any>): Map<String, AttributeDefinition> {
+        @Suppress("UNCHECKED_CAST")
+        val attributes = raw["attributes"] as? Map<String, Map<String, Any>> ?: return emptyMap()
+        return attributes.mapValues { (key, props) -> parseDefinition(key, props) }
     }
 
     /**

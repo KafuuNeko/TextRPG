@@ -7,7 +7,6 @@ import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import kotlinx.coroutines.*
 import org.textrpg.application.adapter.llm.model.LLMMessage
 import org.textrpg.application.data.config.AppConfig
 
@@ -22,8 +21,6 @@ class OpenAIClient(
 ) : LLMClient {
     private val gson: Gson = Gson()
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
     /**
      * 生成文本
      *
@@ -34,10 +31,10 @@ class OpenAIClient(
      */
     override suspend fun generate(messages: List<LLMMessage>): Result<String> {
         if (!config.llm.enabled) {
-            return Result.failure(Exception("LLM is disabled"))
+            return Result.failure(IllegalStateException("LLM is disabled"))
         }
 
-        return try {
+        return runCatching {
             val requestBody = JsonObject().apply {
                 addProperty("model", config.llm.model)
                 add("messages", JsonArray().apply {
@@ -52,28 +49,31 @@ class OpenAIClient(
                 setBody(gson.toJson(requestBody))
             }
 
-            if (response.status.isSuccess()) {
-                val body = response.bodyAsText()
-                val json = gson.fromJson(body, JsonObject::class.java)
-                val responseText = json
-                    .getAsJsonArray("choices")
-                    ?.firstOrNull()
-                    ?.asJsonObject
-                    ?.getAsJsonObject("message")
-                    ?.get("content")
-                    ?.asString
-                    ?: ""
-                Result.success(responseText)
-            } else {
-                Result.failure(Exception("LLM request failed: ${response.status}"))
+            if (!response.status.isSuccess()) {
+                error("LLM request failed: ${response.status}")
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+
+            val body = response.bodyAsText()
+            gson.fromJson(body, JsonObject::class.java)
+                .getAsJsonArray("choices")
+                ?.firstOrNull()
+                ?.asJsonObject
+                ?.getAsJsonObject("message")
+                ?.get("content")
+                ?.asString
+                ?: ""
         }
     }
 
+    /**
+     * 关闭客户端
+     *
+     * `OpenAIClient` 持有的所有资源（[httpClient] / [config]）都是构造期注入的，
+     * 生命周期由调用方（通常是 Application）管理，本实现无需自行释放——故为 no-op。
+     * 保留方法是为了满足 [LLMClient.shutdown] 接口契约。
+     */
     override fun shutdown() {
-        scope.cancel()
+        // no-op: 资源由调用方管理
     }
 
     private fun LLMMessage.toJson(): JsonObject = when (this) {
@@ -89,5 +89,10 @@ class OpenAIClient(
             addProperty("role", "user")
             addProperty("content", message)
         }
+        is LLMMessage.AssistantToolCall, is LLMMessage.Tool ->
+            throw IllegalArgumentException(
+                "OpenAIClient.generate is text-only and does not support Function Calling messages " +
+                "(${this::class.simpleName}). Use OpenAIFunctionCallingClient.generateWithTools instead."
+            )
     }
 }

@@ -2,8 +2,6 @@ package org.textrpg.application.data.config
 
 import org.textrpg.application.domain.model.NpcDefinition
 import org.textrpg.application.domain.model.NpcFunction
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 data class NpcConfig(val npcs: Map<String, NpcDefinition> = emptyMap())
 
@@ -12,26 +10,15 @@ data class NpcConfig(val npcs: Map<String, NpcDefinition> = emptyMap())
  *
  * 从 YAML 文件加载 NPC 定义。
  */
-object NpcConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/npcs.yaml"
+object NpcConfigLoader : AbstractYamlLoader<NpcConfig>() {
+    override val defaultPath = "src/main/resources/config/npcs.yaml"
+    override val default = NpcConfig()
+    override val configName = "NPC"
 
-    fun load(path: String = DEFAULT_PATH): NpcConfig {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: NPC config not found at $path, using empty definitions")
-            return NpcConfig()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return NpcConfig()
-            @Suppress("UNCHECKED_CAST")
-            val npcsRaw = raw["npcs"] as? Map<String, Map<String, Any>> ?: emptyMap()
-            val npcs = npcsRaw.mapValues { (key, props) -> parseNpc(key, props) }
-            NpcConfig(npcs = npcs)
-        } catch (e: Exception) {
-            println("Warning: Failed to load NPC config from $path: ${e.message}")
-            NpcConfig()
-        }
+    override fun parse(raw: Map<String, Any>): NpcConfig {
+        @Suppress("UNCHECKED_CAST")
+        val npcsRaw = raw["npcs"] as? Map<String, Map<String, Any>> ?: return NpcConfig()
+        return NpcConfig(npcs = npcsRaw.mapValues { (key, props) -> parseNpc(key, props) })
     }
 
     @Suppress("UNCHECKED_CAST")

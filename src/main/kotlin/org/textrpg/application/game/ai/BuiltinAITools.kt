@@ -40,6 +40,8 @@ object BuiltinAITools {
         questManager: QuestManager? = null
     ) {
         // send_message — 通用消息发送
+        // 若运行时上下文提供了 messageSink，立即发送给目标；否则退化为返回文本
+        // （等同于把消息回传给 LLM 自己看，主要用于无玩家通道的场景如 boss decision）
         registry.register("send_message", AIToolHandler(
             definition = ToolDefinition(
                 name = "send_message",
@@ -48,14 +50,17 @@ object BuiltinAITools {
                     "message" to ToolParameter(type = "string", description = "The message text", required = true)
                 )
             ),
-            handler = { args ->
+            handler = { args, context ->
                 val message = args["message"]?.toString() ?: ""
-                // 实际发送由场景管理器处理，这里返回文本
+                context?.messageSink?.invoke(message)
                 message
             }
         ))
 
         // cast_skill — Boss AI 使用技能
+        // 框架不直接调用 SkillEngine——战斗系统对 caster/target/skill 上下文有强约束。
+        // 工具返回结构化字符串 `skill:{id}|speech:{text}`，由调用方（如 CombatSession）
+        // 解析后通过 SkillEngine.useSkill 真正释放。这是 框架/业务 关注点分离的有意设计。
         registry.register("cast_skill", AIToolHandler(
             definition = ToolDefinition(
                 name = "cast_skill",
@@ -65,7 +70,7 @@ object BuiltinAITools {
                     "speech" to ToolParameter(type = "string", description = "Optional battle cry or dialogue")
                 )
             ),
-            handler = { args ->
+            handler = { args, _ ->
                 val skillId = args["skill_id"]?.toString() ?: ""
                 val speech = args["speech"]?.toString() ?: ""
                 "skill:$skillId${if (speech.isNotBlank()) "|speech:$speech" else ""}"
@@ -86,7 +91,7 @@ object BuiltinAITools {
                         "connect_to" to ToolParameter(type = "string", description = "Node key to connect to (bidirectional)")
                     )
                 ),
-                handler = { args ->
+                handler = { args, _ ->
                     val key = args["key"]?.toString() ?: return@AIToolHandler "Error: missing key"
                     val displayName = args["display_name"]?.toString() ?: key
                     val description = args["description"]?.toString() ?: ""
@@ -124,7 +129,7 @@ object BuiltinAITools {
                         "prompt" to ToolParameter(type = "string", description = "AI dialogue role prompt")
                     )
                 ),
-                handler = { args ->
+                handler = { args, _ ->
                     val key = args["key"]?.toString() ?: return@AIToolHandler "Error: missing key"
                     val npc = NpcDefinition(
                         key = key,
@@ -152,7 +157,7 @@ object BuiltinAITools {
                         "giver" to ToolParameter(type = "string", description = "NPC key who gives this quest")
                     )
                 ),
-                handler = { args ->
+                handler = { args, _ ->
                     val key = args["key"]?.toString() ?: return@AIToolHandler "Error: missing key"
                     val quest = QuestDefinition(
                         key = key,

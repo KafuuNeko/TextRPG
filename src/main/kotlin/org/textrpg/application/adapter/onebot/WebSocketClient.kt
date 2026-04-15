@@ -1,5 +1,6 @@
 package org.textrpg.application.adapter.onebot
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.websocket.*
@@ -7,6 +8,8 @@ import kotlinx.coroutines.*
 import kotlinx.serialization.json.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+
+private val log = KotlinLogging.logger {}
 
 /**
  * WebSocket 事件回调
@@ -58,7 +61,7 @@ class WebSocketClient(
                 session = this
                 isConnected = true
                 isConnecting = false
-                println("WebSocket connected to ${config.websocketUrl}")
+                log.info { "WebSocket connected to ${config.websocketUrl}" }
 
                 for (frame in incoming) {
                     when (frame) {
@@ -121,7 +124,7 @@ class WebSocketClient(
      * 处理收到的 WebSocket 消息
      */
     private suspend fun handleMessage(text: String) {
-        try {
+        runCatching {
             val json = Json.parseToJsonElement(text).jsonObject
             val postType = json["post_type"]?.jsonPrimitive?.contentOrNull
 
@@ -130,8 +133,8 @@ class WebSocketClient(
                 "meta_event" -> handleMetaEvent(json)
                 ".respond" -> handleApiResponse(json)
             }
-        } catch (e: Exception) {
-            println("Error handling WebSocket message: ${e.message}")
+        }.onFailure { e ->
+            log.warn(e) { "Error handling WebSocket message" }
         }
     }
 
@@ -154,7 +157,11 @@ class WebSocketClient(
             rawEvent = json
         )
 
-        listeners.values.forEach { it.invoke(event) }
+        // 异常隔离：单个 listener 抛错不应阻断后续 listener 或 WebSocket 收消息循环
+        listeners.values.forEach { listener ->
+            runCatching { listener.invoke(event) }
+                .onFailure { log.warn(it) { "Message listener threw" } }
+        }
     }
 
     /**
@@ -197,11 +204,8 @@ class WebSocketClient(
         val data = obj["data"]?.jsonObject ?: emptyMap()
         val dataMap = data.entries.associate { it.key to (it.value.jsonPrimitive.contentOrNull ?: "") }
 
-        val type = try {
-            MessageSegmentType.valueOf(typeStr.uppercase())
-        } catch (e: Exception) {
-            MessageSegmentType.CUSTOM
-        }
+        val type = runCatching { MessageSegmentType.valueOf(typeStr.uppercase()) }
+            .getOrDefault(MessageSegmentType.CUSTOM)
 
         return MessageSegment(type, dataMap)
     }
@@ -222,11 +226,10 @@ class WebSocketClient(
 
         session?.send(Frame.Text(payload.toString()))
 
-        return try {
-            withTimeout(30000) { deferred.await() }
-        } catch (e: Exception) {
-            pendingRequests.remove(echo)
-            null
-        }
+        return runCatching { withTimeout(30000) { deferred.await() } }
+            .getOrElse {
+                pendingRequests.remove(echo)
+                null
+            }
     }
 }

@@ -33,11 +33,9 @@ class SkillContextAdapter(
         get() = registered
 
     override fun getAttributeValue(key: String): Double? {
-        return try {
-            entity.getAttributeValue(key)
-        } catch (_: Exception) {
-            null
-        }
+        // EntityAccessor.getAttributeValue 约定不抛异常（属性不存在返回 0.0），
+        // 因此无需 try-catch；签名返回 Double? 是 CommandContext 的接口约束。
+        return entity.getAttributeValue(key)
     }
 
     override fun modifyAttribute(key: String, delta: Double) {

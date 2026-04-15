@@ -1,8 +1,6 @@
 package org.textrpg.application.data.config
 
 import org.textrpg.application.domain.model.*
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 /**
  * 战斗配置加载结果
@@ -47,33 +45,21 @@ data class CombatConfigResult(
  *           quantity: "1-3"
  * ```
  */
-object CombatConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/combat.yaml"
+object CombatConfigLoader : AbstractYamlLoader<CombatConfigResult>() {
+    override val defaultPath = "src/main/resources/config/combat.yaml"
+    override val default = CombatConfigResult()
+    override val configName = "Combat"
 
-    /**
-     * 从指定路径加载战斗配置
-     */
-    fun load(path: String = DEFAULT_PATH): CombatConfigResult {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: Combat config not found at $path, using defaults")
-            return CombatConfigResult()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return CombatConfigResult()
-            @Suppress("UNCHECKED_CAST")
-            val combatConfig = parseCombatConfig(raw["combat"] as? Map<String, Any>)
-            @Suppress("UNCHECKED_CAST")
-            val enemiesRaw = raw["enemies"] as? Map<String, Map<String, Any>> ?: emptyMap()
-            val enemies = enemiesRaw.mapValues { (key, props) -> parseEnemy(key, props) }
-            CombatConfigResult(combatConfig = combatConfig, enemies = enemies)
-        } catch (e: Exception) {
-            println("Warning: Failed to load combat config from $path: ${e.message}")
-            CombatConfigResult()
-        }
+    override fun parse(raw: Map<String, Any>): CombatConfigResult {
+        @Suppress("UNCHECKED_CAST")
+        val combatConfig = parseCombatConfig(raw["combat"] as? Map<String, Any>)
+        @Suppress("UNCHECKED_CAST")
+        val enemiesRaw = raw["enemies"] as? Map<String, Map<String, Any>> ?: emptyMap()
+        val enemies = enemiesRaw.mapValues { (key, props) -> parseEnemy(key, props) }
+        return CombatConfigResult(combatConfig = combatConfig, enemies = enemies)
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun parseCombatConfig(raw: Map<String, Any>?): CombatConfig {
         if (raw == null) return CombatConfig()
         return CombatConfig(
@@ -84,7 +70,18 @@ object CombatConfigLoader {
             critMultiplier = RequiresParser.toDouble(raw["critMultiplier"]) ?: 1.5,
             minDamage = RequiresParser.toDouble(raw["minDamage"]) ?: 1.0,
             fleeCheck = raw["fleeCheck"] as? String,
-            defaultTimeoutSeconds = (raw["defaultTimeoutSeconds"] as? Number)?.toLong() ?: 60
+            defaultTimeoutSeconds = (raw["defaultTimeoutSeconds"] as? Number)?.toLong() ?: 60,
+            attributeKeys = parseAttributeKeys(raw["attributeKeys"] as? Map<String, Any>)
+        )
+    }
+
+    private fun parseAttributeKeys(raw: Map<String, Any>?): CombatAttributeKeys {
+        if (raw == null) return CombatAttributeKeys()
+        val defaults = CombatAttributeKeys()
+        return CombatAttributeKeys(
+            currentHp = raw["currentHp"] as? String ?: defaults.currentHp,
+            maxHp = raw["maxHp"] as? String ?: defaults.maxHp,
+            exp = raw["exp"] as? String ?: defaults.exp
         )
     }
 

@@ -1,9 +1,12 @@
 package org.textrpg.application.game.combat
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.textrpg.application.domain.model.EnemyDefinition
 import org.textrpg.application.game.attribute.FormulaEngine
 import org.textrpg.application.utils.script.KotlinScriptRunner
 import java.io.File
+
+private val log = KotlinLogging.logger {}
 
 /**
  * AI 行动类型
@@ -117,7 +120,7 @@ class EnemyAI(
         val scriptPath = definition.aiScript ?: return AIDecision(AIActionType.DEFEND)
         val file = File(scriptPath)
         if (!file.exists()) {
-            println("Warning: AI script not found: $scriptPath, falling back to rules")
+            log.warn { "AI script not found: $scriptPath, falling back to rules" }
             return decideByRules(enemy, definition, state)
         }
 
@@ -134,7 +137,7 @@ class EnemyAI(
         }
 
         // 脚本失败，回退到规则
-        println("Warning: AI script failed: ${result.message}, falling back to rules")
+        log.warn { "AI script failed: ${result.message}, falling back to rules" }
         return decideByRules(enemy, definition, state)
     }
 
@@ -155,42 +158,46 @@ class EnemyAI(
         if (condition == "true" || condition == "1") return true
         if (condition == "false" || condition == "0") return false
 
-        return try {
+        return runCatching {
             // 预处理点前缀
             val processed = condition
                 .replace("self.", "self_")
                 .replace("target.", "target_")
 
-            val value = FormulaEngine.evaluate(processed) { key ->
+            FormulaEngine.evaluate(processed) { key ->
                 when {
                     key.startsWith("self_") -> enemy.getAttributeValue(key.removePrefix("self_"))
                     key.startsWith("target_") -> state.playerEntity.getAttributeValue(key.removePrefix("target_"))
                     else -> enemy.getAttributeValue(key)
                 }
-            }
-            value > 0
-        } catch (e: Exception) {
-            println("Warning: AI condition evaluation failed: '$condition': ${e.message}")
+            } > 0
+        }.getOrElse { e ->
+            log.warn(e) { "AI condition evaluation failed: '$condition'" }
             false
         }
     }
 
     /**
      * 解析动作字符串为 AI 决策
+     *
+     * 优先识别特殊关键字（`defend` / `flee`，大小写不敏感），
+     * 否则按技能 ID 处理（保持原样大小写匹配）。技能 ID 必须在
+     * [EnemyDefinition.skills] 白名单中——不在白名单的字符串视为配置错误，
+     * 回退为 [AIActionType.DEFEND] 防止把非法技能传给 [SkillEngine] 导致回合空转。
+     *
+     * @param action 来自 [AIRule.action] 或 AI 脚本的动作字符串
+     * @param definition 敌人定义（提供技能白名单）
+     * @return AI 决策
      */
     private fun parseAction(action: String, definition: EnemyDefinition): AIDecision {
-        return when (action.lowercase()) {
-            "defend" -> AIDecision(AIActionType.DEFEND)
-            "flee" -> AIDecision(AIActionType.FLEE)
-            else -> {
-                // 当作技能 ID
-                if (action in definition.skills) {
-                    AIDecision(AIActionType.SKILL, action)
-                } else {
-                    // 未知动作，尝试当作技能
-                    AIDecision(AIActionType.SKILL, action)
-                }
-            }
+        when (action.lowercase()) {
+            "defend" -> return AIDecision(AIActionType.DEFEND)
+            "flee" -> return AIDecision(AIActionType.FLEE)
         }
+        if (action in definition.skills) {
+            return AIDecision(AIActionType.SKILL, action)
+        }
+        log.warn { "AI action '$action' is not a known keyword nor in skills ${definition.skills}, falling back to DEFEND" }
+        return AIDecision(AIActionType.DEFEND)
     }
 }

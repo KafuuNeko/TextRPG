@@ -3,8 +3,6 @@ package org.textrpg.application.data.config
 import org.textrpg.application.domain.model.MapNodeDefinition
 import org.textrpg.application.domain.model.NodeConnection
 import org.textrpg.application.domain.model.NodeEntities
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 data class MapConfig(val nodes: Map<String, MapNodeDefinition> = emptyMap())
 
@@ -13,26 +11,15 @@ data class MapConfig(val nodes: Map<String, MapNodeDefinition> = emptyMap())
  *
  * 从 YAML 文件加载地图节点定义。
  */
-object MapConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/nodes.yaml"
+object MapConfigLoader : AbstractYamlLoader<MapConfig>() {
+    override val defaultPath = "src/main/resources/config/nodes.yaml"
+    override val default = MapConfig()
+    override val configName = "Map"
 
-    fun load(path: String = DEFAULT_PATH): MapConfig {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: Map config not found at $path, using empty definitions")
-            return MapConfig()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return MapConfig()
-            @Suppress("UNCHECKED_CAST")
-            val nodesRaw = raw["nodes"] as? Map<String, Map<String, Any>> ?: emptyMap()
-            val nodes = nodesRaw.mapValues { (key, props) -> parseNode(key, props) }
-            MapConfig(nodes = nodes)
-        } catch (e: Exception) {
-            println("Warning: Failed to load map config from $path: ${e.message}")
-            MapConfig()
-        }
+    override fun parse(raw: Map<String, Any>): MapConfig {
+        @Suppress("UNCHECKED_CAST")
+        val nodesRaw = raw["nodes"] as? Map<String, Map<String, Any>> ?: return MapConfig()
+        return MapConfig(nodes = nodesRaw.mapValues { (key, props) -> parseNode(key, props) })
     }
 
     @Suppress("UNCHECKED_CAST")

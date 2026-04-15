@@ -1,10 +1,13 @@
 package org.textrpg.application.game.combat
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.textrpg.application.domain.model.CombatConfig
 import org.textrpg.application.game.attribute.FormulaEngine
 import org.textrpg.application.game.effect.EffectContext
 import org.textrpg.application.game.effect.EntityAccessor
 import kotlin.random.Random
+
+private val log = KotlinLogging.logger {}
 
 /**
  * 战斗特效执行上下文
@@ -51,7 +54,7 @@ class CombatEffectContext(
             "random_ally" -> allies.filter { it.isAlive }.randomOrNull(random)?.let { listOf(it) } ?: emptyList()
             "all" -> (allies + enemies).filter { it.isAlive }
             else -> {
-                println("Warning: Unknown target selector '$selector' in combat context")
+                log.warn { "Unknown target selector '$selector' in combat context" }
                 emptyList()
             }
         }
@@ -111,16 +114,15 @@ class CombatEffectContext(
      * 由于 [FormulaEngine] 的 Tokenizer 将 `.` 作为小数点处理，
      * 带点的前缀（如 `attacker.physical_attack`）无法正确解析。
      * 此方法将点前缀转为下划线前缀。
+     *
+     * 使用单一正则一次替换全部 6 种前缀，避免 6 次字符串扫描。
      */
     fun preprocessCombatFormula(formula: String): String {
-        var result = formula
-        for (prefix in listOf("attacker.", "defender.", "self.", "target.", "enemy.", "player.")) {
-            result = result.replace(prefix, prefix.replace(".", "_"))
-        }
-        return result
+        return PREFIX_DOT.replace(formula) { match -> "${match.groupValues[1]}_" }
     }
 
     companion object {
         private val RANDOM_PATTERN = Regex("""random\((\d+)\)""")
+        private val PREFIX_DOT = Regex("""\b(attacker|defender|self|target|enemy|player)\.""")
     }
 }

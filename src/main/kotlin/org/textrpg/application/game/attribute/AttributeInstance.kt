@@ -135,18 +135,24 @@ class AttributeInstance(val definition: AttributeDefinition) {
      * 重新计算最终值
      *
      * 计算流程：
-     * 1. 累加所有 FLAT 修正器到基础值上
-     * 2. 将所有 PERCENT 修正器加算合并，一次乘算（两个 +10% = +20%，非连乘）
-     * 3. 裁剪至属性定义的 [min, max]
+     * 1. 单次遍历 [modifiers]，按类型分别累加 FLAT 与 PERCENT 总和
+     * 2. 基础值 + FLAT 总和
+     * 3. 将 PERCENT 总和加算合并，一次乘算（两个 +10% = +20%，非连乘）
+     * 4. 裁剪至属性定义的 `[min, max]`
+     *
+     * **关于 [Modifier.priority]**：当前算法对 FLAT/PERCENT 分别采用累加+一次乘的策略，
+     * 累加的交换律使得 priority 在该策略下不影响结果。该字段保留以支持未来切换为
+     * "按优先级有序应用"的自定义计算策略，目前不参与计算。
      */
     private fun recalculate() {
-        val flatSum = modifiers
-            .filter { it.type == ModifierType.FLAT }
-            .sumOf { it.value }
-
-        val percentSum = modifiers
-            .filter { it.type == ModifierType.PERCENT }
-            .sumOf { it.value }
+        var flatSum = 0.0
+        var percentSum = 0.0
+        for (m in modifiers) {
+            when (m.type) {
+                ModifierType.FLAT -> flatSum += m.value
+                ModifierType.PERCENT -> percentSum += m.value
+            }
+        }
 
         var result = baseValue + flatSum
         if (percentSum != 0.0) {

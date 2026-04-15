@@ -1,8 +1,8 @@
 package org.textrpg.application.game.equipment
 
 import org.textrpg.application.data.repository.ItemRepository
-import org.textrpg.application.data.repository.PlayerEquipment
-import org.textrpg.application.data.repository.PlayerInventoryItem
+import org.textrpg.application.domain.entity.PlayerEquipment
+import org.textrpg.application.domain.entity.PlayerInventoryItem
 import org.textrpg.application.domain.model.*
 import org.textrpg.application.game.attribute.AttributeContainer
 import org.textrpg.application.game.inventory.InventoryService

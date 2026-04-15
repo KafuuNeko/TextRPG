@@ -14,7 +14,6 @@ import org.textrpg.application.game.combat.EnemyAI
 import org.textrpg.application.game.command.CommandHandlerRegistry
 import org.textrpg.application.game.command.CommandRouter
 import org.textrpg.application.game.command.SessionManager
-import org.textrpg.application.game.effect.BuiltinEffectHandlers
 import org.textrpg.application.game.effect.EffectEngine
 import org.textrpg.application.game.equipment.EquipmentService
 import org.textrpg.application.game.inventory.InventoryService
@@ -43,14 +42,9 @@ import org.textrpg.application.utils.script.KotlinScriptRunner
  */
 val gameModule = module {
     // ---- 特效 & 技能引擎 ----
-    // EffectEngine 需在构造后注册 12 个内置 atomic effect handler
-    single<EffectEngine> {
-        EffectEngine(get<KotlinScriptRunner>()).apply {
-            BuiltinEffectHandlers.createAll(get()).forEach { (type, handler) ->
-                registerHandler(type, handler)
-            }
-        }
-    }
+    // EffectEngine 构造时已自动注册 12 个内置 atomic effect handler（见 EffectEngine.handlers 初始化）
+    // 此处仅做依赖注入，不再重复 BuiltinEffectHandlers.createAll
+    singleOf(::EffectEngine)
 
     // 全局 CooldownManager 默认实例（范例若需"每玩家一份"可覆盖）
     singleOf(::CooldownManager)

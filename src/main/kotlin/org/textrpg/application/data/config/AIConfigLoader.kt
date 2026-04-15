@@ -2,8 +2,6 @@ package org.textrpg.application.data.config
 
 import org.textrpg.application.domain.model.AISafetyConfig
 import org.textrpg.application.domain.model.AISceneConfig
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 /**
  * AI 配置
@@ -19,27 +17,17 @@ data class AIConfig(
 /**
  * AI 配置加载器
  */
-object AIConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/ai.yaml"
+object AIConfigLoader : AbstractYamlLoader<AIConfig>() {
+    override val defaultPath = "src/main/resources/config/ai.yaml"
+    override val default = AIConfig()
+    override val configName = "AI"
 
-    fun load(path: String = DEFAULT_PATH): AIConfig {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: AI config not found at $path, using defaults")
-            return AIConfig()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return AIConfig()
-            @Suppress("UNCHECKED_CAST")
-            val safety = parseSafety(raw["aiSafety"] as? Map<String, Any>)
-            @Suppress("UNCHECKED_CAST")
-            val scenes = parseScenes(raw["aiScenes"] as? Map<String, Map<String, Any>>)
-            AIConfig(safety = safety, scenes = scenes)
-        } catch (e: Exception) {
-            println("Warning: Failed to load AI config from $path: ${e.message}")
-            AIConfig()
-        }
+    override fun parse(raw: Map<String, Any>): AIConfig {
+        @Suppress("UNCHECKED_CAST")
+        val safety = parseSafety(raw["aiSafety"] as? Map<String, Any>)
+        @Suppress("UNCHECKED_CAST")
+        val scenes = parseScenes(raw["aiScenes"] as? Map<String, Map<String, Any>>)
+        return AIConfig(safety = safety, scenes = scenes)
     }
 
     @Suppress("UNCHECKED_CAST")

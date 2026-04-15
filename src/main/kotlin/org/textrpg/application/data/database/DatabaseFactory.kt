@@ -1,9 +1,12 @@
 package org.textrpg.application.data.database
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.textrpg.application.data.config.DatabaseConfig
+
+private val log = KotlinLogging.logger {}
 
 class DatabaseFactory(private val config: DatabaseConfig) {
 
@@ -22,6 +25,6 @@ class DatabaseFactory(private val config: DatabaseConfig) {
                 PlayerBuffs
             )
         }
-        println("Database initialized: ${config.url}")
+        log.info { "Database initialized: ${config.url}" }
     }
 }

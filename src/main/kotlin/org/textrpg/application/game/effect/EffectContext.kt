@@ -1,6 +1,9 @@
 package org.textrpg.application.game.effect
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.textrpg.application.game.attribute.FormulaEngine
+
+private val log = KotlinLogging.logger {}
 
 /**
  * 特效执行上下文接口
@@ -73,7 +76,7 @@ open class SimpleEffectContext(
                 emptyList()
             }
             else -> {
-                println("Warning: Unknown target selector '$selector', returning empty list")
+                log.warn { "Unknown target selector '$selector', returning empty list" }
                 emptyList()
             }
         }

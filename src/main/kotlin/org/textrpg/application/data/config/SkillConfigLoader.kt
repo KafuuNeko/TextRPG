@@ -1,8 +1,6 @@
 package org.textrpg.application.data.config
 
 import org.textrpg.application.domain.model.SkillDefinition
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 /**
  * 技能配置加载结果
@@ -44,32 +42,15 @@ data class SkillConfig(
  *
  * @see SkillDefinition
  */
-object SkillConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/skills.yaml"
+object SkillConfigLoader : AbstractYamlLoader<SkillConfig>() {
+    override val defaultPath = "src/main/resources/config/skills.yaml"
+    override val default = SkillConfig()
+    override val configName = "Skill"
 
-    /**
-     * 从指定路径加载技能配置
-     *
-     * @param path YAML 配置文件路径（默认 [DEFAULT_PATH]）
-     * @return [SkillConfig] 实例，加载失败时返回默认空配置
-     */
-    fun load(path: String = DEFAULT_PATH): SkillConfig {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: Skill config not found at $path, using empty definitions")
-            return SkillConfig()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return SkillConfig()
-            @Suppress("UNCHECKED_CAST")
-            val skillsRaw = raw["skills"] as? Map<String, Map<String, Any>> ?: emptyMap()
-            val skills = skillsRaw.mapValues { (key, props) -> parseSkill(key, props) }
-            SkillConfig(skills = skills)
-        } catch (e: Exception) {
-            println("Warning: Failed to load skill config from $path: ${e.message}")
-            SkillConfig()
-        }
+    override fun parse(raw: Map<String, Any>): SkillConfig {
+        @Suppress("UNCHECKED_CAST")
+        val skillsRaw = raw["skills"] as? Map<String, Map<String, Any>> ?: return SkillConfig()
+        return SkillConfig(skills = skillsRaw.mapValues { (key, props) -> parseSkill(key, props) })
     }
 
     /**

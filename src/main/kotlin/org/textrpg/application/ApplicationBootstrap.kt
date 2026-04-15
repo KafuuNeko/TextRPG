@@ -1,9 +1,12 @@
 package org.textrpg.application
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.koin.core.component.KoinComponent
 import org.textrpg.application.adapter.onebot.OneBotAdapter
 import org.textrpg.application.game.command.CommandHandlerRegistry
 import org.textrpg.application.game.command.NamedCommandHandler
+
+private val log = KotlinLogging.logger {}
 
 /**
  * 应用启动编排骨架
@@ -74,13 +77,13 @@ open class ApplicationBootstrap(
      */
     protected open suspend fun startLoop() {
         adapter.registerMessageListener { event ->
-            println("收到消息 from ${event.userId}: ${event.getPlainText()}")
+            log.info { "收到消息 from ${event.userId}: ${event.getPlainText()}" }
             if (event.isGroup) {
-                println("  群组: ${event.groupId}")
+                log.info { "  群组: ${event.groupId}" }
             }
         }
 
         runCatching { adapter.connect() }
-            .onFailure { println("Connection failed: ${it.localizedMessage}") }
+            .onFailure { log.error { "Connection failed: ${it.localizedMessage}" } }
     }
 }

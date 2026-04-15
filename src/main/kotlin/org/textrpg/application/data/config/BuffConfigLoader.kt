@@ -3,8 +3,6 @@ package org.textrpg.application.data.config
 import org.textrpg.application.domain.model.BuffDefinition
 import org.textrpg.application.domain.model.BuffModifierDefinition
 import org.textrpg.application.domain.model.StackPolicy
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 /**
  * Buff 配置加载结果
@@ -43,32 +41,15 @@ data class BuffConfig(
  *
  * @see BuffDefinition
  */
-object BuffConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/buffs.yaml"
+object BuffConfigLoader : AbstractYamlLoader<BuffConfig>() {
+    override val defaultPath = "src/main/resources/config/buffs.yaml"
+    override val default = BuffConfig()
+    override val configName = "Buff"
 
-    /**
-     * 从指定路径加载 Buff 配置
-     *
-     * @param path YAML 配置文件路径（默认 [DEFAULT_PATH]）
-     * @return [BuffConfig] 实例，加载失败时返回默认空配置
-     */
-    fun load(path: String = DEFAULT_PATH): BuffConfig {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: Buff config not found at $path, using empty definitions")
-            return BuffConfig()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return BuffConfig()
-            @Suppress("UNCHECKED_CAST")
-            val buffsRaw = raw["buffs"] as? Map<String, Map<String, Any>> ?: emptyMap()
-            val buffs = buffsRaw.mapValues { (key, props) -> parseBuff(key, props) }
-            BuffConfig(buffs = buffs)
-        } catch (e: Exception) {
-            println("Warning: Failed to load buff config from $path: ${e.message}")
-            BuffConfig()
-        }
+    override fun parse(raw: Map<String, Any>): BuffConfig {
+        @Suppress("UNCHECKED_CAST")
+        val buffsRaw = raw["buffs"] as? Map<String, Map<String, Any>> ?: return BuffConfig()
+        return BuffConfig(buffs = buffsRaw.mapValues { (key, props) -> parseBuff(key, props) })
     }
 
     /**

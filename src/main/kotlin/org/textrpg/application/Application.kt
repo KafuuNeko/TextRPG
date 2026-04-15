@@ -2,6 +2,7 @@ package org.textrpg.application
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import kotlinx.coroutines.CoroutineScope
@@ -46,6 +47,10 @@ object Application : KoinComponent {
                     Json { ignoreUnknownKeys = true; isLenient = true }
                 }
                 install(WebSockets)
+                install(HttpTimeout) {
+                    requestTimeoutMillis = 30_000
+                    connectTimeoutMillis = 10_000
+                }
             }
         }
         single<AppConfig> { ConfigLoader.loadOrDefault() }

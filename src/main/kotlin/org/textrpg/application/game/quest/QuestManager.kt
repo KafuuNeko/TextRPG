@@ -38,6 +38,14 @@ class QuestManager(
     private val playerQuests = ConcurrentHashMap<Long, MutableList<QuestProgress>>()
 
     /**
+     * 动态任务定义注册表
+     *
+     * 供 Step 7 AI 工具（如 `BuiltinAITools.create_quest`）在运行时新增任务定义。
+     * 与构造时传入的 [questDefinitions] 一视同仁，查询统一走 [findDefinition]。
+     */
+    private val dynamicQuests = ConcurrentHashMap<String, QuestDefinition>()
+
+    /**
      * 接取任务
      *
      * @param playerId 玩家 ID
@@ -46,7 +54,7 @@ class QuestManager(
      * @return 操作结果
      */
     fun acceptQuest(playerId: Long, questId: String, context: CommandContext): QuestResult {
-        val definition = questDefinitions[questId]
+        val definition = findDefinition(questId)
             ?: return QuestResult.failed("任务不存在：$questId")
 
         // 检查是否已接取
@@ -112,7 +120,7 @@ class QuestManager(
         for (progress in quests) {
             if (progress.status != QuestStatus.ACTIVE) continue
 
-            val definition = questDefinitions[progress.questId] ?: continue
+            val definition = findDefinition(progress.questId) ?: continue
 
             for ((index, objective) in definition.objectives.withIndex()) {
                 if (index >= progress.objectives.size) break
@@ -152,7 +160,7 @@ class QuestManager(
             return QuestResult.failed("任务尚未完成")
         }
 
-        val definition = questDefinitions[questId]
+        val definition = findDefinition(questId)
             ?: return QuestResult.failed("任务定义不存在")
 
         // 发放奖励
@@ -190,12 +198,14 @@ class QuestManager(
     /**
      * 动态注册任务定义
      *
-     * 供 Step 7 AI 动态生成任务时使用。
-     * 注意：questDefinitions 是构造时传入的不可变 Map，
-     * 动态任务需要一个额外的可变注册表。
+     * 注册后即可被 [acceptQuest] / [onEvent] / [turnInQuest] 直接消费——
+     * 与构造时传入的静态任务定义一视同仁，查询统一走 [findDefinition]。
+     *
+     * 主要由 Step 7 的 AI 工具（`BuiltinAITools.create_quest`）使用，
+     * 也可由范例层在运行时按需追加。
+     *
+     * @param definition 任务定义（[QuestDefinition.key] 作为唯一标识）
      */
-    private val dynamicQuests = ConcurrentHashMap<String, QuestDefinition>()
-
     fun registerQuest(definition: QuestDefinition) {
         dynamicQuests[definition.key] = definition
     }
@@ -207,7 +217,13 @@ class QuestManager(
     }
 
     /**
-     * 查找任务定义（先查静态，再查动态）
+     * 查找任务定义（统一查询入口）
+     *
+     * 先查构造时传入的静态 [questDefinitions]，再查运行时通过 [registerQuest]
+     * 注册的 [dynamicQuests]。所有需要按 questId 取定义的内部逻辑均应走此方法。
+     *
+     * @param questId 任务标识符
+     * @return 任务定义，未注册时返回 null
      */
     private fun findDefinition(questId: String): QuestDefinition? {
         return questDefinitions[questId] ?: dynamicQuests[questId]

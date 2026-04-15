@@ -3,8 +3,6 @@ package org.textrpg.application.data.config
 import org.textrpg.application.domain.model.CommandDefinition
 import org.textrpg.application.domain.model.ParamDefinition
 import org.textrpg.application.domain.model.RequiresDefinition
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 /**
  * 指令配置加载结果
@@ -36,33 +34,17 @@ data class CommandConfig(
  *
  * @see CommandDefinition
  */
-object CommandConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/commands.yaml"
+object CommandConfigLoader : AbstractYamlLoader<CommandConfig>() {
+    override val defaultPath = "src/main/resources/config/commands.yaml"
+    override val default = CommandConfig()
+    override val configName = "Command"
 
-    /**
-     * 从指定路径加载指令配置
-     *
-     * @param path YAML 配置文件路径
-     * @return [CommandConfig] 实例，加载失败时返回默认配置
-     */
-    fun load(path: String = DEFAULT_PATH): CommandConfig {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: Command config not found at $path, using empty definitions")
-            return CommandConfig()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return CommandConfig()
-            val prefix = raw["commandPrefix"] as? String ?: "/"
-            @Suppress("UNCHECKED_CAST")
-            val commandsRaw = raw["commands"] as? Map<String, Map<String, Any>> ?: emptyMap()
-            val commands = commandsRaw.mapValues { (key, props) -> parseCommand(key, props) }
-            CommandConfig(commandPrefix = prefix, commands = commands)
-        } catch (e: Exception) {
-            println("Warning: Failed to load command config from $path: ${e.message}")
-            CommandConfig()
-        }
+    override fun parse(raw: Map<String, Any>): CommandConfig {
+        val prefix = raw["commandPrefix"] as? String ?: "/"
+        @Suppress("UNCHECKED_CAST")
+        val commandsRaw = raw["commands"] as? Map<String, Map<String, Any>> ?: emptyMap()
+        val commands = commandsRaw.mapValues { (key, props) -> parseCommand(key, props) }
+        return CommandConfig(commandPrefix = prefix, commands = commands)
     }
 
     /**

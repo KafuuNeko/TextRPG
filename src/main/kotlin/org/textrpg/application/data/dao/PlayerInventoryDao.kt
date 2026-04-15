@@ -1,4 +1,4 @@
-package org.textrpg.application.domain.entity
+package org.textrpg.application.data.dao
 
 import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.dao.LongEntityClass

@@ -71,22 +71,24 @@ class CooldownManager {
      *
      * 每回合结束时调用。冷却降至 0 的技能自动移除。
      *
+     * **并发安全**：基于 [ConcurrentHashMap.keys] 快照迭代，避免 CHM 弱一致 forEach
+     * 在迭代过程中遇到刚 put 的新值导致同一 key 被再次访问的隐患。
+     *
      * @param entityId 实体标识符
      */
     fun tickCooldowns(entityId: String) {
         val entityCooldowns = cooldowns[entityId] ?: return
-        val expired = mutableListOf<String>()
 
-        entityCooldowns.forEach { (skillId, remaining) ->
-            val newValue = remaining - 1
+        // 快照 key 列表，迭代期间外部修改不影响本次 tick
+        for (skillId in entityCooldowns.keys.toList()) {
+            val current = entityCooldowns[skillId] ?: continue
+            val newValue = current - 1
             if (newValue <= 0) {
-                expired.add(skillId)
+                entityCooldowns.remove(skillId)
             } else {
                 entityCooldowns[skillId] = newValue
             }
         }
-
-        expired.forEach { entityCooldowns.remove(it) }
 
         // 清理空映射
         if (entityCooldowns.isEmpty()) {

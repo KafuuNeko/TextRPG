@@ -1,8 +1,11 @@
 package org.textrpg.application.data.config
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.Serializable
 import org.yaml.snakeyaml.Yaml
 import java.io.File
+
+private val log = KotlinLogging.logger {}
 
 /**
  * 应用配置数据类
@@ -114,7 +117,7 @@ object ConfigLoader {
         return try {
             load(path)
         } catch (e: Exception) {
-            println("Warning: Failed to load config from $path, using defaults: ${e.message}")
+            log.warn(e) { "Failed to load config from $path, using defaults" }
             AppConfig()
         }
     }

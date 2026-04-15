@@ -38,9 +38,15 @@ class CombatEntity(
     private val messageSink: suspend (String) -> Unit = {}
 ) : BuffAwareEntityAccessor(attributeContainer, buffManager) {
 
-    /** 是否存活（current_hp > 0） */
+    /**
+     * 是否存活（默认按 `current_hp > 0` 判定）
+     *
+     * 这里的属性名是框架默认惯例。范例若使用其他 HP 属性命名，应通过
+     * [org.textrpg.application.domain.model.CombatAttributeKeys] 在
+     * [CombatSession] 层做胜负判定，而不要依赖此 getter。
+     */
     val isAlive: Boolean
-        get() = try { getAttributeValue("current_hp") > 0 } catch (_: Exception) { false }
+        get() = getAttributeValue("current_hp") > 0
 
     /** 公开的 Buff 管理器引用（战斗系统需要在回合结束时调用 tick） */
     val buffs: org.textrpg.application.game.buff.BuffManager get() = buffManager

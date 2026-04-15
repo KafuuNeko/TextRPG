@@ -1,24 +1,25 @@
 package org.textrpg.application.domain.entity
 
-import org.jetbrains.exposed.dao.LongEntity
-import org.jetbrains.exposed.dao.LongEntityClass
-import org.jetbrains.exposed.dao.id.EntityID
-import org.textrpg.application.data.database.Players
+import org.joda.time.DateTime
 
 /**
- * 玩家 Exposed DAO 实体
+ * 玩家领域模型
  *
- * 对应数据库 `players` 表，仅包含玩家基础信息。
- * 游戏数值（等级、经验、生命值等）由独立的数值服务管理，不在此实体中。
+ * 包含玩家基础信息和属性数据快照。遵循规范 §4.2：纯 Kotlin 数据类，
+ * 无框架注解、不依赖持久化层。数据库映射由 [org.textrpg.application.data.dao.PlayerEntity] 承担。
  *
- * @param id EntityID<Long>，数据库自增主键
+ * @property id 数据库主键，新建时传 0
+ * @property name 玩家名称（全局唯一）
+ * @property bindAccount 绑定的社交平台账号 ID（用于将 QQ/微信等平台用户关联到游戏角色）
+ * @property attributeData 属性基础值 JSON 快照（如 `{"strength": 15, "current_hp": 80}`）
+ * @property createdAt 创建时间
+ * @property updatedAt 更新时间
  */
-class PlayerEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<PlayerEntity>(Players)
-
-    var name by Players.name
-    var bindAccount by Players.bindAccount
-    var attributeData by Players.attributeData
-    var createdAt by Players.createdAt
-    var updatedAt by Players.updatedAt
-}
+data class Player(
+    val id: Long = 0,
+    val name: String,
+    val bindAccount: String,
+    val attributeData: String = "{}",
+    val createdAt: DateTime? = null,
+    val updatedAt: DateTime? = null
+)

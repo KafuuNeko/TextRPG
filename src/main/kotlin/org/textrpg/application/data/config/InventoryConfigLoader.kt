@@ -1,8 +1,5 @@
 package org.textrpg.application.data.config
 
-import org.yaml.snakeyaml.Yaml
-import java.io.File
-
 /**
  * 背包配置
  *
@@ -29,34 +26,18 @@ data class InventoryConfig(
  *   maxWeight: 100.0
  * ```
  */
-object InventoryConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/inventory.yaml"
+object InventoryConfigLoader : AbstractYamlLoader<InventoryConfig>() {
+    override val defaultPath = "src/main/resources/config/inventory.yaml"
+    override val default = InventoryConfig()
+    override val configName = "Inventory"
 
-    /**
-     * 从指定路径加载背包配置
-     *
-     * @param path YAML 配置文件路径（默认 [DEFAULT_PATH]）
-     * @return [InventoryConfig] 实例，加载失败时返回默认配置
-     */
-    fun load(path: String = DEFAULT_PATH): InventoryConfig {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: Inventory config not found at $path, using defaults")
-            return InventoryConfig()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return InventoryConfig()
-            @Suppress("UNCHECKED_CAST")
-            val invRaw = raw["inventory"] as? Map<String, Any> ?: return InventoryConfig()
-            InventoryConfig(
-                capacityMode = invRaw["capacityMode"] as? String ?: "slots",
-                maxSlots = (invRaw["maxSlots"] as? Number)?.toInt() ?: 30,
-                maxWeight = RequiresParser.toDouble(invRaw["maxWeight"]) ?: 100.0
-            )
-        } catch (e: Exception) {
-            println("Warning: Failed to load inventory config from $path: ${e.message}")
-            InventoryConfig()
-        }
+    override fun parse(raw: Map<String, Any>): InventoryConfig {
+        @Suppress("UNCHECKED_CAST")
+        val invRaw = raw["inventory"] as? Map<String, Any> ?: return InventoryConfig()
+        return InventoryConfig(
+            capacityMode = invRaw["capacityMode"] as? String ?: "slots",
+            maxSlots = (invRaw["maxSlots"] as? Number)?.toInt() ?: 30,
+            maxWeight = RequiresParser.toDouble(invRaw["maxWeight"]) ?: 100.0
+        )
     }
 }

@@ -1,11 +1,14 @@
 package org.textrpg.application.game.buff
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.textrpg.application.domain.model.*
 import org.textrpg.application.game.attribute.AttributeContainer
 import org.textrpg.application.game.effect.EffectContext
 import org.textrpg.application.game.effect.EffectEngine
 import org.textrpg.application.utils.script.KotlinScriptRunner
 import java.io.File
+
+private val log = KotlinLogging.logger {}
 
 /**
  * Buff 管理器（per-entity）
@@ -80,7 +83,7 @@ class BuffManager(
     fun applyBuff(buffId: String, stacks: Int = 1, durationOverride: Int? = null) {
         val definition = buffDefinitions[buffId]
         if (definition == null) {
-            println("Warning: Buff definition not found: $buffId")
+            log.warn { "Buff definition not found: $buffId" }
             return
         }
 
@@ -274,7 +277,7 @@ class BuffManager(
 
         val file = File(scriptPath)
         if (!file.exists()) {
-            println("Warning: Buff hook script not found: $scriptPath")
+            log.warn { "Buff hook script not found: $scriptPath" }
             return
         }
 
@@ -286,7 +289,7 @@ class BuffManager(
 
         val result = scriptRunner.executeScript(file.readText(), context)
         if (!result.success) {
-            println("Warning: Buff hook script failed ($scriptPath): ${result.message}")
+            log.warn { "Buff hook script failed ($scriptPath): ${result.message}" }
         }
     }
 }

@@ -2,6 +2,9 @@ package org.textrpg.application.game.inventory
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val log = KotlinLogging.logger {}
 
 /**
  * 物品属性解析器
@@ -25,11 +28,10 @@ object ItemStatsParser {
      */
     fun parseBaseStats(json: String): Map<String, Double> {
         if (json.isBlank() || json == "{}") return emptyMap()
-        return try {
-            gson.fromJson<Map<String, Double>>(json, mapType) ?: emptyMap()
-        } catch (e: Exception) {
-            println("Warning: Failed to parse baseStats: ${e.message}")
-            emptyMap()
-        }
+        return runCatching { gson.fromJson<Map<String, Double>>(json, mapType) ?: emptyMap() }
+            .getOrElse { e ->
+                log.warn(e) { "Failed to parse baseStats" }
+                emptyMap()
+            }
     }
 }

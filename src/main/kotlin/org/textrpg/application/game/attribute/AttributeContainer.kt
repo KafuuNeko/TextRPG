@@ -2,10 +2,13 @@ package org.textrpg.application.game.attribute
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.textrpg.application.domain.model.AttributeDefinition
 import org.textrpg.application.domain.model.AttributeTier
 import org.textrpg.application.domain.model.Modifier
 import org.textrpg.application.domain.model.TriggerType
+
+private val log = KotlinLogging.logger {}
 
 /**
  * 属性容器
@@ -245,15 +248,15 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
      */
     fun deserializeBaseValues(json: String) {
         if (json.isBlank() || json == "{}") return
-        try {
+        runCatching {
             val type = object : TypeToken<Map<String, Double>>() {}.type
             val data: Map<String, Double> = Gson().fromJson(json, type)
             for ((key, value) in data) {
                 instances[key]?.setBaseValue(value)
             }
             recalculateAllDerived()
-        } catch (e: Exception) {
-            println("Warning: Failed to deserialize attribute data: ${e.message}")
+        }.onFailure { e ->
+            log.warn(e) { "Failed to deserialize attribute data" }
         }
     }
 
@@ -400,7 +403,7 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
 
         if (sorted.size < derivedKeys.size) {
             val cyclic = derivedKeys - sorted.toSet()
-            println("Warning: Circular dependency detected in derived attributes: $cyclic. These attributes will not be auto-calculated.")
+            log.warn { "Circular dependency detected in derived attributes: $cyclic. These attributes will not be auto-calculated." }
         }
 
         return sorted

@@ -1,8 +1,6 @@
 package org.textrpg.application.data.config
 
 import org.textrpg.application.domain.model.*
-import org.yaml.snakeyaml.Yaml
-import java.io.File
 
 data class QuestConfig(val quests: Map<String, QuestDefinition> = emptyMap())
 
@@ -11,26 +9,15 @@ data class QuestConfig(val quests: Map<String, QuestDefinition> = emptyMap())
  *
  * 从 YAML 文件加载任务定义。
  */
-object QuestConfigLoader {
-    private val yaml = Yaml()
-    private const val DEFAULT_PATH = "src/main/resources/config/quests.yaml"
+object QuestConfigLoader : AbstractYamlLoader<QuestConfig>() {
+    override val defaultPath = "src/main/resources/config/quests.yaml"
+    override val default = QuestConfig()
+    override val configName = "Quest"
 
-    fun load(path: String = DEFAULT_PATH): QuestConfig {
-        val file = File(path)
-        if (!file.exists()) {
-            println("Warning: Quest config not found at $path, using empty definitions")
-            return QuestConfig()
-        }
-        return try {
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return QuestConfig()
-            @Suppress("UNCHECKED_CAST")
-            val questsRaw = raw["quests"] as? Map<String, Map<String, Any>> ?: emptyMap()
-            val quests = questsRaw.mapValues { (key, props) -> parseQuest(key, props) }
-            QuestConfig(quests = quests)
-        } catch (e: Exception) {
-            println("Warning: Failed to load quest config from $path: ${e.message}")
-            QuestConfig()
-        }
+    override fun parse(raw: Map<String, Any>): QuestConfig {
+        @Suppress("UNCHECKED_CAST")
+        val questsRaw = raw["quests"] as? Map<String, Map<String, Any>> ?: return QuestConfig()
+        return QuestConfig(quests = questsRaw.mapValues { (key, props) -> parseQuest(key, props) })
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -76,7 +63,8 @@ object QuestConfigLoader {
                     quantity = (props["quantity"] as? Number)?.toInt() ?: 1
                 )
             } ?: emptyList(),
-            attributeChanges = (map["attributeChange"] as? Map<String, Any>)
+            attributeChanges = (map["attributeChanges"] as? Map<String, Any>
+                ?: map["attributeChange"] as? Map<String, Any>)
                 ?.mapValues { (_, v) -> RequiresParser.toDouble(v) ?: 0.0 }
                 ?: emptyMap()
         )

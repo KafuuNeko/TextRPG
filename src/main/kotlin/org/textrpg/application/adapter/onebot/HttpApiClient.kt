@@ -5,8 +5,6 @@ import io.ktor.client.call.*
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -27,34 +25,22 @@ data class HttpApiResult(
 /**
  * HTTP API 客户端
  *
- * 用于调用 OneBot HTTP API
+ * 用于调用 OneBot HTTP API。
  *
- * @property config OneBot 配置
+ * **超时**：每次请求通过 [HttpTimeout] 插件按调用配置（30s 请求 / 10s 连接），
+ * 与注入的 [HttpClient] 全局配置无关，避免对调用方 client 的隐性依赖。
+ *
+ * @param config OneBot 配置
+ * @param client Ktor HTTP 客户端（必须已安装 [HttpTimeout] 插件，由 Application 层统一注入）
  */
-class HttpApiClient(private val config: OneBotConfig) {
-    private val client = HttpClient {
-        install(HttpTimeout) {
-            requestTimeoutMillis = 30000
-            connectTimeoutMillis = 10000
-        }
-    }
+class HttpApiClient(
+    private val config: OneBotConfig,
+    private val client: HttpClient
+) {
 
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
-    }
-
-    private val mutex = Mutex()
-    private var echoCounter = 0L
-
-    /**
-     * 获取新的 echo 值
-     */
-    private suspend fun nextEcho(): String {
-        mutex.withLock {
-            echoCounter++
-            return "http_${System.currentTimeMillis()}_$echoCounter"
-        }
     }
 
     /**
@@ -121,16 +107,9 @@ class HttpApiClient(private val config: OneBotConfig) {
      * @param messageId 消息 ID
      * @return 消息信息
      */
-    suspend fun getMessage(messageId: String): MessageInfo? {
-        val result = callApi("get_msg", buildJsonObject { put("message_id", JsonPrimitive(messageId)) })
-        return if (result.success && result.data != null) {
-            try {
-                json.decodeFromString<MessageInfo>(result.data.toString())
-            } catch (e: Exception) {
-                null
-            }
-        } else null
-    }
+    suspend fun getMessage(messageId: String): MessageInfo? =
+        callApi("get_msg", buildJsonObject { put("message_id", JsonPrimitive(messageId)) })
+            .decodeData()
 
     /**
      * 撤回消息
@@ -149,16 +128,9 @@ class HttpApiClient(private val config: OneBotConfig) {
      * @param userId 用户 ID
      * @return 用户信息
      */
-    suspend fun getStrangerInfo(userId: String): UserInfo? {
-        val result = callApi("get_stranger_info", buildJsonObject { put("user_id", JsonPrimitive(userId)) })
-        return if (result.success && result.data != null) {
-            try {
-                json.decodeFromString<UserInfo>(result.data.toString())
-            } catch (e: Exception) {
-                null
-            }
-        } else null
-    }
+    suspend fun getStrangerInfo(userId: String): UserInfo? =
+        callApi("get_stranger_info", buildJsonObject { put("user_id", JsonPrimitive(userId)) })
+            .decodeData()
 
     /**
      * 获取群信息
@@ -167,35 +139,20 @@ class HttpApiClient(private val config: OneBotConfig) {
      * @param noCache 是否不使用缓存
      * @return 群信息
      */
-    suspend fun getGroupInfo(groupId: String, noCache: Boolean = false): GroupInfo? {
-        val result = callApi("get_group_info", buildJsonObject {
+    suspend fun getGroupInfo(groupId: String, noCache: Boolean = false): GroupInfo? =
+        callApi("get_group_info", buildJsonObject {
             put("group_id", JsonPrimitive(groupId))
             put("no_cache", JsonPrimitive(noCache))
-        })
-        return if (result.success && result.data != null) {
-            try {
-                json.decodeFromString<GroupInfo>(result.data.toString())
-            } catch (e: Exception) {
-                null
-            }
-        } else null
-    }
+        }).decodeData()
 
     /**
      * 获取群列表
      *
      * @return 群信息列表
      */
-    suspend fun getGroupList(): List<GroupInfo> {
-        val result = callApi("get_group_list", buildJsonObject { })
-        return if (result.success && result.data != null) {
-            try {
-                json.decodeFromString<List<GroupInfo>>(result.data.toString())
-            } catch (e: Exception) {
-                emptyList()
-            }
-        } else emptyList()
-    }
+    suspend fun getGroupList(): List<GroupInfo> =
+        callApi("get_group_list", buildJsonObject { })
+            .decodeData<List<GroupInfo>>() ?: emptyList()
 
     /**
      * 获取群成员信息
@@ -205,20 +162,12 @@ class HttpApiClient(private val config: OneBotConfig) {
      * @param noCache 是否不使用缓存
      * @return 群成员信息
      */
-    suspend fun getGroupMemberInfo(groupId: String, userId: String, noCache: Boolean = false): GroupMemberInfo? {
-        val result = callApi("get_group_member_info", buildJsonObject {
+    suspend fun getGroupMemberInfo(groupId: String, userId: String, noCache: Boolean = false): GroupMemberInfo? =
+        callApi("get_group_member_info", buildJsonObject {
             put("group_id", JsonPrimitive(groupId))
             put("user_id", JsonPrimitive(userId))
             put("no_cache", JsonPrimitive(noCache))
-        })
-        return if (result.success && result.data != null) {
-            try {
-                json.decodeFromString<GroupMemberInfo>(result.data.toString())
-            } catch (e: Exception) {
-                null
-            }
-        } else null
-    }
+        }).decodeData()
 
     /**
      * 获取群成员列表
@@ -226,15 +175,18 @@ class HttpApiClient(private val config: OneBotConfig) {
      * @param groupId 群 ID
      * @return 群成员信息列表
      */
-    suspend fun getGroupMemberList(groupId: String): List<GroupMemberInfo> {
-        val result = callApi("get_group_member_list", buildJsonObject { put("group_id", JsonPrimitive(groupId)) })
-        return if (result.success && result.data != null) {
-            try {
-                json.decodeFromString<List<GroupMemberInfo>>(result.data.toString())
-            } catch (e: Exception) {
-                emptyList()
-            }
-        } else emptyList()
+    suspend fun getGroupMemberList(groupId: String): List<GroupMemberInfo> =
+        callApi("get_group_member_list", buildJsonObject { put("group_id", JsonPrimitive(groupId)) })
+            .decodeData<List<GroupMemberInfo>>() ?: emptyList()
+
+    /**
+     * 把 [HttpApiResult.data] 解析为指定类型
+     *
+     * 失败/无数据时返回 null。统一所有 get 方法的解码逻辑，避免重复 try-catch。
+     */
+    private inline fun <reified T> HttpApiResult.decodeData(): T? {
+        if (!success || data == null) return null
+        return runCatching { json.decodeFromString<T>(data.toString()) }.getOrNull()
     }
 
     /**
@@ -245,7 +197,7 @@ class HttpApiClient(private val config: OneBotConfig) {
      * @return API 结果
      */
     private suspend fun callApi(action: String, params: JsonElement): HttpApiResult {
-        return try {
+        return runCatching {
             val requestBody = buildJsonObject {
                 put("action", JsonPrimitive(action))
                 put("params", params)
@@ -253,7 +205,9 @@ class HttpApiClient(private val config: OneBotConfig) {
 
             val response = client.post("${config.httpUrl}/api") {
                 contentType(ContentType.Application.Json)
-                header("Authorization", config.accessToken?.let { "Bearer $it" })
+                config.accessToken?.takeIf { it.isNotBlank() }?.let {
+                    header("Authorization", "Bearer $it")
+                }
                 setBody(requestBody.toString())
             }
 
@@ -275,7 +229,7 @@ class HttpApiClient(private val config: OneBotConfig) {
                     errmsg = response.status.description
                 )
             }
-        } catch (e: Exception) {
+        }.getOrElse { e ->
             HttpApiResult(
                 success = false,
                 data = null,
@@ -285,10 +239,4 @@ class HttpApiClient(private val config: OneBotConfig) {
         }
     }
 
-    /**
-     * 关闭客户端
-     */
-    fun close() {
-        client.close()
-    }
 }

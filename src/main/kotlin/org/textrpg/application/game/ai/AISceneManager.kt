@@ -1,9 +1,9 @@
 package org.textrpg.application.game.ai
 
 import org.textrpg.application.adapter.llm.FunctionCallingClient
+import org.textrpg.application.adapter.llm.model.FunctionCallingResponse
 import org.textrpg.application.adapter.llm.model.LLMMessage
 import org.textrpg.application.data.config.AIConfig
-import org.textrpg.application.domain.model.MapNodeDefinition
 
 /**
  * AI 场景执行结果
@@ -68,17 +68,21 @@ class AISceneManager(
      * @param playerId 玩家 ID（用于获取 Tag）
      * @param userPrompt 用户输入 / 场景上下文
      * @param extraContext 额外上下文信息（可选）
+     * @param messageSink 可选消息通道。LLM 调用 `send_message` 工具时会立即推送到该通道；
+     *   传 null 时退化为只把消息文本作为 tool result 回传给 LLM（适合 boss 决策等"AI 自言自语"场景）
      * @return 场景执行结果
      */
     suspend fun executeScene(
         sceneName: String,
         playerId: Long,
         userPrompt: String,
-        extraContext: String? = null
+        extraContext: String? = null,
+        messageSink: (suspend (String) -> Unit)? = null
     ): AISceneResult {
         // 1. 获取场景配置
         val sceneConfig = config.scenes[sceneName]
         val allowedTools = sceneConfig?.allowedTools ?: emptyList()
+        val toolContext = AIToolContext(messageSink = messageSink)
 
         // 2. 构建消息列表
         val messages = mutableListOf<LLMMessage>()
@@ -121,11 +125,8 @@ class AISceneManager(
             val response = if (tools.isNotEmpty()) {
                 client.generateWithTools(messages, tools)
             } else {
-                // 无工具时退化为普通文本生成
-                val textResult = client.generate(messages)
-                textResult.map {
-                    org.textrpg.application.adapter.llm.model.FunctionCallingResponse(content = it)
-                }
+                // 无工具时退化为普通文本生成,把结果包装成 FunctionCallingResponse 统一处理
+                client.generate(messages).map { FunctionCallingResponse(content = it) }
             }
 
             if (response.isFailure) {
@@ -139,16 +140,20 @@ class AISceneManager(
                 return AISceneResult.success(fcResponse.content, toolResultLog)
             }
 
-            // 执行工具调用
-            for (toolCall in fcResponse.toolCalls) {
-                val result = toolRegistry.executeTool(toolCall.name, toolCall.arguments, allowedTools)
-                toolResultLog.add("${toolCall.name}(${toolCall.arguments}) → $result")
+            // 1. 把 LLM 本轮的工具调用决策完整回放到对话历史中
+            //    （OpenAI Function Calling 协议要求 assistant 消息携带 tool_calls 字段）
+            messages.add(
+                LLMMessage.AssistantToolCall(
+                    content = fcResponse.content,
+                    toolCalls = fcResponse.toolCalls
+                )
+            )
 
-                // 将工具结果回传给 LLM
-                messages.add(LLMMessage.Assistant(
-                    "Tool call: ${toolCall.name}(${toolCall.arguments})"
-                ))
-                messages.add(LLMMessage.User("Tool result: $result"))
+            // 2. 顺序执行每个工具,把结果作为 role=tool 消息追加,并通过 tool_call_id 关联
+            for (toolCall in fcResponse.toolCalls) {
+                val result = toolRegistry.executeTool(toolCall.name, toolCall.arguments, allowedTools, toolContext)
+                toolResultLog.add("${toolCall.name}(${toolCall.arguments}) → $result")
+                messages.add(LLMMessage.Tool(toolCallId = toolCall.id, content = result))
             }
         }
 
@@ -164,15 +169,18 @@ class AISceneManager(
      * @param playerId 玩家 ID
      * @param npcPrompt NPC 的角色 Prompt
      * @param playerMessage 玩家发送的对话消息
+     * @param messageSink 可选消息通道——若提供，AI 通过 `send_message` 工具发出的消息会
+     *   实时推送到该通道；否则只在最终返回值中体现
      * @return NPC 的回复文本
      */
     suspend fun npcDialogue(
         playerId: Long,
         npcPrompt: String,
-        playerMessage: String
+        playerMessage: String,
+        messageSink: (suspend (String) -> Unit)? = null
     ): String {
         val extraContext = "You are playing this NPC character. Respond in character.\n\nNPC Role:\n$npcPrompt"
-        val result = executeScene("npc_dialogue", playerId, playerMessage, extraContext)
+        val result = executeScene("npc_dialogue", playerId, playerMessage, extraContext, messageSink)
         return result.content ?: result.error ?: "..."
     }
 

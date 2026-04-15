@@ -50,6 +50,11 @@ dependencies {
 
     // Koin DI
     implementation("io.insert-koin:koin-core:3.5.3")
+
+    // Logging — SLF4J API + simple impl + kotlin-logging facade
+    implementation("io.github.oshai:kotlin-logging-jvm:5.1.4")
+    implementation("org.slf4j:slf4j-api:2.0.9")
+    implementation("org.slf4j:slf4j-simple:2.0.9")
 }
 
 kotlin {

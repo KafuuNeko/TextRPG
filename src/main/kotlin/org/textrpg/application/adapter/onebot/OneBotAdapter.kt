@@ -1,7 +1,6 @@
 package org.textrpg.application.adapter.onebot
 
 import io.ktor.client.*
-import kotlinx.coroutines.*
 
 /**
  * OneBot 适配器
@@ -31,29 +30,9 @@ class OneBotAdapter(
     private val httpClient: HttpClient? = null
 ) {
     private val client = httpClient ?: HttpClient()
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val wsClient: WebSocketClient = WebSocketClient(config, client)
-    private val httpApiClient: HttpApiClient = HttpApiClient(config)
-
-    private val listeners = mutableListOf<ListenerId>()
-
-    init {
-        // 注册内部消息监听器，转发给外部监听器
-        wsClient.registerMessageListener { event ->
-            scope.launch {
-                messageListeners.forEach { (_, listener) ->
-                    try {
-                        listener(event)
-                    } catch (e: Exception) {
-                        println("Error in message listener: ${e.message}")
-                    }
-                }
-            }
-        }
-    }
-
-    private val messageListeners = mutableMapOf<ListenerId, (MessageEvent) -> Unit>()
+    private val httpApiClient: HttpApiClient = HttpApiClient(config, client)
 
     /**
      * 是否已连接
@@ -75,19 +54,19 @@ class OneBotAdapter(
      */
     fun disconnect() {
         wsClient.disconnect()
-        scope.cancel()
     }
 
     /**
      * 注册消息监听器
      *
+     * 监听器由 [WebSocketClient] 持有；其内部已做异常隔离，
+     * 单个 listener 抛错不会中断其他 listener 或 WebSocket 收消息循环。
+     *
      * @param listener 消息监听回调
      * @return 监听器 ID，用于取消注册
      */
     fun registerMessageListener(listener: (MessageEvent) -> Unit): ListenerId {
-        val id = wsClient.registerMessageListener(listener)
-        listeners.add(id)
-        return id
+        return wsClient.registerMessageListener(listener)
     }
 
     /**
@@ -222,10 +201,16 @@ class OneBotAdapter(
 
     /**
      * 关闭适配器，释放资源
+     *
+     * 仅释放本适配器**自有**的资源：
+     * - 断开 WebSocket 连接（[wsClient]）
+     * - 若 [httpClient] 是构造时未注入而由本类自己 new 出来的，则一并 close
+     *
+     * 注入的 [httpClient] 由调用方管理生命周期，不在此处关闭——
+     * 否则会破坏其他共用同一 client 的组件（如 [HttpApiClient] / [WebSocketClient]）。
      */
     fun close() {
         disconnect()
-        httpApiClient.close()
         if (httpClient == null) {
             client.close()
         }

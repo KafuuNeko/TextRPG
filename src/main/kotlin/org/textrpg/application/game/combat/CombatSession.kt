@@ -1,5 +1,6 @@
 package org.textrpg.application.game.combat
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import org.textrpg.application.domain.model.CombatConfig
 import org.textrpg.application.domain.model.EnemyDefinition
@@ -9,6 +10,8 @@ import org.textrpg.application.game.command.SessionManager
 import org.textrpg.application.game.effect.EffectEngine
 import org.textrpg.application.game.skill.SkillEngine
 import kotlin.random.Random
+
+private val log = KotlinLogging.logger {}
 
 /**
  * 战斗结局
@@ -138,8 +141,10 @@ class CombatSession(
     private suspend fun runRound(roundNumber: Int): CombatOutcome {
         playerEntity.sendMessage("\n--- 第 ${roundNumber} 回合 ---")
 
-        // 玩家回合
-        playerTurn()
+        // 玩家回合（玩家可能选择逃跑等终结战斗的行动，优先于胜负判定返回）
+        val playerOutcome = playerTurn()
+        if (playerOutcome != CombatOutcome.CONTINUE) return playerOutcome
+
         val check1 = checkWinLose()
         if (check1 != CombatOutcome.CONTINUE) return check1
 
@@ -155,7 +160,13 @@ class CombatSession(
 
     // ======================== 玩家回合 ========================
 
-    private suspend fun playerTurn() {
+    /**
+     * 处理玩家回合
+     *
+     * @return [CombatOutcome.CONTINUE] 表示战斗继续；其他值（如 [CombatOutcome.PLAYER_FLEE]）
+     *         表示玩家行动直接终结战斗
+     */
+    private suspend fun playerTurn(): CombatOutcome {
         // 构建菜单
         val menu = buildPlayerMenu()
         currentMenu = menu
@@ -173,18 +184,18 @@ class CombatSession(
 
         if (input == "__timeout__") {
             playerEntity.sendMessage("⏰ 超时，自动防御。")
-            return
+            return CombatOutcome.CONTINUE
         }
 
         // 解析输入
         val action = parsePlayerInput(input)
         if (action == null) {
             playerEntity.sendMessage("无效输入，本回合跳过。")
-            return
+            return CombatOutcome.CONTINUE
         }
 
         // 执行行动
-        executePlayerAction(action)
+        return executePlayerAction(action)
     }
 
     private fun buildPlayerMenu(): List<MenuEntry> {
@@ -229,17 +240,22 @@ class CombatSession(
         }
     }
 
-    private suspend fun executePlayerAction(action: MenuEntry) {
+    /**
+     * 执行玩家选定的行动
+     *
+     * @return [CombatOutcome.CONTINUE] 战斗继续；[CombatOutcome.PLAYER_FLEE] 玩家成功逃跑
+     */
+    private suspend fun executePlayerAction(action: MenuEntry): CombatOutcome {
         when (action.actionType) {
             MenuActionType.ATTACK -> {
                 // 普通攻击：使用战斗公式直接计算
                 val damage = calculateDamage(playerEntity, enemyEntity)
-                enemyEntity.modifyAttribute("current_hp", -damage)
+                enemyEntity.modifyAttribute(combatConfig.attributeKeys.currentHp, -damage)
                 playerEntity.sendMessage("你发起攻击，造成 ${damage.toInt()} 点伤害！")
                 playerEntity.sendMessage(formatEnemyStatus())
             }
             MenuActionType.SKILL -> {
-                val skillId = action.data ?: return
+                val skillId = action.data ?: return CombatOutcome.CONTINUE
                 val context = buildCombatContext(playerEntity, enemyEntity)
                 val result = skillEngine.useSkill(skillId, context, sessionType = "combat")
                 if (result.success) {
@@ -254,10 +270,43 @@ class CombatSession(
                 // 防御效果由 Buff 或临时修正器实现（简化版直接跳过）
             }
             MenuActionType.FLEE -> {
-                // 逃跑已在上层处理；此处作为兜底
-                playerEntity.sendMessage("你试图逃跑……")
+                return tryFlee()
             }
             MenuActionType.DISABLED -> { /* 不应到达 */ }
+        }
+        return CombatOutcome.CONTINUE
+    }
+
+    /**
+     * 求值 [CombatConfig.fleeCheck] 公式判定逃跑结果
+     *
+     * 公式 > 0 视为成功（约定与暴击判定方向相反但语义自洽：成功条件由公式直观表达）。
+     * 公式异常或未配置 fleeCheck 时视为失败，本回合作废但战斗继续。
+     */
+    private suspend fun tryFlee(): CombatOutcome {
+        val fleeFormula = combatConfig.fleeCheck
+        if (fleeFormula == null) {
+            playerEntity.sendMessage("此战斗不允许逃跑。")
+            return CombatOutcome.CONTINUE
+        }
+        val fleeCtx = CombatEffectContext(
+            source = playerEntity,
+            primaryTarget = enemyEntity,
+            allies = listOf(playerEntity),
+            enemies = listOf(enemyEntity),
+            combatConfig = combatConfig
+        )
+        val result = runCatching {
+            fleeCtx.resolveFormula(fleeCtx.preprocessCombatFormula(fleeFormula), playerEntity)
+        }.getOrElse {
+            playerEntity.sendMessage("逃跑公式异常，本次尝试失败。")
+            return CombatOutcome.CONTINUE
+        }
+        return if (result > 0) {
+            CombatOutcome.PLAYER_FLEE
+        } else {
+            playerEntity.sendMessage("逃跑失败！")
+            CombatOutcome.CONTINUE
         }
     }
 
@@ -280,7 +329,7 @@ class CombatSession(
                     } else {
                         // 技能失败时执行普通攻击
                         val damage = calculateDamage(enemyEntity, playerEntity)
-                        playerEntity.modifyAttribute("current_hp", -damage)
+                        playerEntity.modifyAttribute(combatConfig.attributeKeys.currentHp, -damage)
                         playerEntity.sendMessage("${enemyEntity.displayName} 发起攻击，造成 ${damage.toInt()} 点伤害！")
                     }
                 }
@@ -325,15 +374,14 @@ class CombatSession(
         val formula = ctx.preprocessCombatFormula(combatConfig.damageFormula)
         var damage = ctx.resolveFormula(formula, attacker)
 
-        // 暴击判定
-        try {
+        // 暴击判定（critCheck 设计为 "random(100) - crit_rate"，<= 0 表示暴击）
+        // 公式异常时静默跳过暴击，避免因为暴击公式破坏战斗主流程
+        runCatching {
             val critFormula = ctx.preprocessCombatFormula(combatConfig.critCheck)
-            val critResult = ctx.resolveFormula(critFormula, attacker)
-            if (critResult <= 0) { // critCheck 设计为 "random(100) - crit_rate"，<= 0 表示暴击
-                damage *= combatConfig.critMultiplier
-                // 暴击提示由调用方处理
-            }
-        } catch (_: Exception) { /* 暴击公式异常，跳过暴击 */ }
+            ctx.resolveFormula(critFormula, attacker)
+        }.onSuccess { critResult ->
+            if (critResult <= 0) damage *= combatConfig.critMultiplier
+        }
 
         // 最低伤害
         if (damage < combatConfig.minDamage) {
@@ -356,24 +404,26 @@ class CombatSession(
     private suspend fun settlement() {
         val rewards = enemyDefinition.rewards ?: return
 
-        // 经验结算
-        if (rewards.expFormula != null) {
-            try {
-                val formula = rewards.expFormula
+        // 经验结算（公式异常时跳过经验奖励，避免破坏掉落结算流程）
+        rewards.expFormula?.let { expFormula ->
+            runCatching {
+                val formula = expFormula
                     .replace("enemy.", "enemy_")
                     .replace("player.", "player_")
-                val exp = FormulaEngine.evaluate(formula) { key ->
+                FormulaEngine.evaluate(formula) { key ->
                     when {
                         key.startsWith("enemy_") -> enemyEntity.getAttributeValue(key.removePrefix("enemy_"))
                         key.startsWith("player_") -> playerEntity.getAttributeValue(key.removePrefix("player_"))
                         else -> enemyEntity.getAttributeValue(key)
                     }
                 }
-                playerEntity.modifyAttribute("exp", exp)
-                playerEntity.sendMessage("获得 ${exp.toInt()} 经验值")
-            } catch (e: Exception) {
-                println("Warning: Exp formula evaluation failed: ${e.message}")
-            }
+            }.fold(
+                onSuccess = { exp ->
+                    playerEntity.modifyAttribute(combatConfig.attributeKeys.exp, exp)
+                    playerEntity.sendMessage("获得 ${exp.toInt()} 经验值")
+                },
+                onFailure = { log.warn(it) { "Exp formula evaluation failed" } }
+            )
         }
 
         // 掉落结算
@@ -418,14 +468,14 @@ class CombatSession(
     }
 
     private fun formatEnemyStatus(): String {
-        val hp = enemyEntity.getAttributeValue("current_hp").toInt()
-        val maxHp = try { enemyEntity.getAttributeValue("max_hp").toInt() } catch (_: Exception) { hp }
+        val hp = enemyEntity.getAttributeValue(combatConfig.attributeKeys.currentHp).toInt()
+        val maxHp = enemyEntity.getAttributeValue(combatConfig.attributeKeys.maxHp).toInt()
         return "[${enemyEntity.displayName}] HP: $hp / $maxHp"
     }
 
     private fun formatPlayerStatus(): String {
-        val hp = playerEntity.getAttributeValue("current_hp").toInt()
-        val maxHp = try { playerEntity.getAttributeValue("max_hp").toInt() } catch (_: Exception) { hp }
+        val hp = playerEntity.getAttributeValue(combatConfig.attributeKeys.currentHp).toInt()
+        val maxHp = playerEntity.getAttributeValue(combatConfig.attributeKeys.maxHp).toInt()
         return "[你] HP: $hp / $maxHp"
     }
 }

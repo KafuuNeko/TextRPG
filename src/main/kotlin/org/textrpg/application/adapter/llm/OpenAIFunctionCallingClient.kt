@@ -2,6 +2,7 @@ package org.textrpg.application.adapter.llm
 
 import com.google.gson.Gson
 import com.google.gson.JsonArray
+import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import io.ktor.client.*
@@ -42,10 +43,10 @@ class OpenAIFunctionCallingClient(
         tools: List<ToolDefinition>
     ): Result<FunctionCallingResponse> {
         if (!config.llm.enabled) {
-            return Result.failure(Exception("LLM is disabled"))
+            return Result.failure(IllegalStateException("LLM is disabled"))
         }
 
-        return try {
+        return runCatching {
             val requestBody = JsonObject().apply {
                 addProperty("model", config.llm.model)
                 add("messages", buildMessagesArray(messages))
@@ -59,39 +60,71 @@ class OpenAIFunctionCallingClient(
                 setBody(gson.toJson(requestBody))
             }
 
-            if (response.status.isSuccess()) {
-                val body = response.bodyAsText()
-                val parsed = parseResponse(body)
-                Result.success(parsed)
-            } else {
-                Result.failure(Exception("LLM request failed: ${response.status}"))
+            if (!response.status.isSuccess()) {
+                error("LLM request failed: ${response.status}")
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+
+            parseResponse(response.bodyAsText())
         }
     }
 
     /**
      * 构建消息数组
+     *
+     * 完整支持 OpenAI Chat Completions 协议的全部消息角色：
+     * - `system` / `user` / `assistant`（普通对话）
+     * - `assistant` + `tool_calls`（LLM 发起工具调用）
+     * - `tool` + `tool_call_id`（工具结果回传）
      */
     private fun buildMessagesArray(messages: List<LLMMessage>): JsonArray {
         return JsonArray().apply {
-            messages.forEach { msg ->
+            messages.forEach { add(buildMessageJson(it)) }
+        }
+    }
+
+    private fun buildMessageJson(msg: LLMMessage): JsonObject = when (msg) {
+        is LLMMessage.System -> JsonObject().apply {
+            addProperty("role", "system")
+            addProperty("content", msg.message)
+        }
+        is LLMMessage.Assistant -> JsonObject().apply {
+            addProperty("role", "assistant")
+            addProperty("content", msg.message)
+        }
+        is LLMMessage.User -> JsonObject().apply {
+            addProperty("role", "user")
+            addProperty("content", msg.message)
+        }
+        is LLMMessage.AssistantToolCall -> JsonObject().apply {
+            addProperty("role", "assistant")
+            // OpenAI 协议允许 content 为 null（工具调用专用消息）
+            if (msg.content != null) addProperty("content", msg.content) else add("content", JsonNull.INSTANCE)
+            add("tool_calls", buildToolCallsArray(msg.toolCalls))
+        }
+        is LLMMessage.Tool -> JsonObject().apply {
+            addProperty("role", "tool")
+            addProperty("tool_call_id", msg.toolCallId)
+            addProperty("content", msg.content)
+        }
+    }
+
+    /**
+     * 构建 LLM 响应中的 tool_calls 数组
+     *
+     * 用于 [LLMMessage.AssistantToolCall] 序列化时，把每个 [ToolCall] 还原为
+     * OpenAI 期望的 `{id, type, function: {name, arguments}}` 结构。
+     * `arguments` 字段按协议是 JSON **字符串**而非对象。
+     */
+    private fun buildToolCallsArray(toolCalls: List<ToolCall>): JsonArray {
+        return JsonArray().apply {
+            toolCalls.forEach { tc ->
                 add(JsonObject().apply {
-                    when (msg) {
-                        is LLMMessage.System -> {
-                            addProperty("role", "system")
-                            addProperty("content", msg.message)
-                        }
-                        is LLMMessage.Assistant -> {
-                            addProperty("role", "assistant")
-                            addProperty("content", msg.message)
-                        }
-                        is LLMMessage.User -> {
-                            addProperty("role", "user")
-                            addProperty("content", msg.message)
-                        }
-                    }
+                    addProperty("id", tc.id)
+                    addProperty("type", "function")
+                    add("function", JsonObject().apply {
+                        addProperty("name", tc.name)
+                        addProperty("arguments", gson.toJson(tc.arguments))
+                    })
                 })
             }
         }
@@ -186,11 +219,9 @@ class OpenAIFunctionCallingClient(
             val callId = tc.get("id")?.asString ?: ""
             val name = function.get("name")?.asString ?: ""
             val argsStr = function.get("arguments")?.asString ?: "{}"
-            val arguments: Map<String, Any?> = try {
+            val arguments: Map<String, Any?> = runCatching<Map<String, Any?>> {
                 gson.fromJson(argsStr, mapType) ?: emptyMap()
-            } catch (_: Exception) {
-                emptyMap()
-            }
+            }.getOrDefault(emptyMap())
             ToolCall(id = callId, name = name, arguments = arguments)
         } ?: emptyList()
 
