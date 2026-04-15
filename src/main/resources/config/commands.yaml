@@ -181,3 +181,12 @@ commands:
     handler: "builtin:shop"
     requires:
       registered: true
+
+  explore:
+    displayName: "探索"
+    aliases: ["探索", "explore"]
+    description: "探索边界区域的未知领域"
+    handler: "builtin:explore"
+    requires:
+      registered: true
+      atNodeTag: "boundary"

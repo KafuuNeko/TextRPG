@@ -5,9 +5,10 @@ bot:
 
 llm:
   enabled: true
-  apiUrl: "http://127.0.0.1:11434/api/generate"
-  model: "llama3"
-  timeout: 60000
+  apiUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+  apiKey: "sk-a767de9141c84588a76337d48030ce31"
+  model: "qwen-plus"
+  timeout: 30000
 
 database:
   url: "jdbc:sqlite:master.sqlite"

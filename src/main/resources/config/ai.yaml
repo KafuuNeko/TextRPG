@@ -28,12 +28,30 @@ aiScenes:
   npc_dialogue:
     allowedTools:
       - "send_message"
+    promptTemplate: |
+      你是一个文字RPG游戏中的NPC角色。请严格按照角色设定来回应玩家。
+      规则：
+      - 保持角色性格一致，不要跳出角色
+      - 回复简洁生动，控制在2-4句话以内
+      - 使用中文回复
+      - 可以透露与角色相关的世界观信息
+      - 不要执行任何游戏机制操作（如给物品、改属性），只进行对话
+
   boss_combat:
     allowedTools:
       - "cast_skill"
       - "send_message"
+
   world_generation:
     allowedTools:
       - "create_node"
       - "create_npc"
       - "create_item_template"
+    promptTemplate: |
+      你是一个奇幻RPG世界的区域生成器。玩家正在探索未知区域。
+      请根据当前位置信息，生成一个新的冒险区域。
+      要求：
+      - 用中文回复
+      - 生成内容要符合经典奇幻RPG风格（剑与魔法）
+      - 回复必须严格使用以下JSON格式，不要添加任何其他文字：
+      {"name": "区域名称", "description": "2-3句话的场景描述", "tags": ["标签1"], "enemies": []}

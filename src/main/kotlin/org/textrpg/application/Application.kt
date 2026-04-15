@@ -32,6 +32,9 @@ import org.textrpg.application.game.inventory.ItemStatsParser
 import org.textrpg.application.game.map.MapManager
 import org.textrpg.application.game.npc.NpcManager
 import org.textrpg.application.game.player.ItemSeeder
+import org.textrpg.application.adapter.llm.model.LLMMessage
+import org.textrpg.application.domain.model.MapNodeDefinition
+import org.textrpg.application.domain.model.NodeConnection
 import org.textrpg.application.game.player.PlayerContext
 import org.textrpg.application.game.player.PlayerManager
 import org.textrpg.application.game.quest.QuestEvent
@@ -144,6 +147,9 @@ object Application : KoinComponent {
         )
 
         // ========== 注册指令处理器 ==========
+        val llmClient: LLMClient = get()
+        val aiConfig = AIConfigLoader.load()
+
         registerHandlers(
             registry = handlerRegistry,
             playerManager = playerManager,
@@ -155,7 +161,9 @@ object Application : KoinComponent {
             skillConfig = skillConfig,
             npcManager = npcManager,
             questManager = questManager,
-            questConfig = questConfig
+            questConfig = questConfig,
+            llmClient = llmClient,
+            aiConfig = aiConfig
         )
 
         // ========== OneBot 消息监听 ==========
@@ -216,7 +224,9 @@ object Application : KoinComponent {
         skillConfig: SkillConfig,
         npcManager: NpcManager,
         questManager: QuestManager,
-        questConfig: QuestConfig
+        questConfig: QuestConfig,
+        llmClient: LLMClient,
+        aiConfig: AIConfig
     ) {
         // ==================== /注册 ====================
         registry.registerBuiltin("register", CommandHandler { args, context ->
@@ -548,18 +558,31 @@ object Application : KoinComponent {
                 if (npcsHere.size == 1) {
                     val npc = npcsHere.first()
                     questManager.onEvent(QuestEvent.NpcTalked(ctx.playerId, npc.key))
-                    return@CommandHandler npcManager.startDialogue(ctx.playerId, npc.key)
+                    // AI 对话
+                    return@CommandHandler generateNpcDialogue(llmClient, aiConfig, npc.displayName, npc.prompt, "你好")
                 }
                 val names = npcsHere.joinToString("、") { it.displayName }
-                return@CommandHandler "这里有：$names\n用法：/对话 <NPC名>"
+                return@CommandHandler "这里有：$names\n用法：/对话 <NPC名> [想说的话]"
             }
 
             val input = args.joinToString(" ")
-            val npc = npcsHere.find { it.displayName == input || it.displayName.contains(input) || it.key == input }
-                ?: return@CommandHandler "这里没有「$input」。"
+            // 分离 NPC 名称和对话内容：第一个匹配到的 NPC 名后面都是对话内容
+            var npcMatch = npcsHere.find { input.startsWith(it.displayName) }
+            val playerMessage: String
+            if (npcMatch != null) {
+                playerMessage = input.removePrefix(npcMatch.displayName).trim().ifEmpty { "你好" }
+            } else {
+                // 尝试模糊匹配
+                npcMatch = npcsHere.find { it.displayName.contains(input.split(" ").first()) || it.key == input.split(" ").first() }
+                if (npcMatch != null) {
+                    playerMessage = input.split(" ").drop(1).joinToString(" ").ifEmpty { "你好" }
+                } else {
+                    return@CommandHandler "这里没有「${input.split(" ").first()}」。"
+                }
+            }
 
-            questManager.onEvent(QuestEvent.NpcTalked(ctx.playerId, npc.key))
-            npcManager.startDialogue(ctx.playerId, npc.key)
+            questManager.onEvent(QuestEvent.NpcTalked(ctx.playerId, npcMatch.key))
+            generateNpcDialogue(llmClient, aiConfig, npcMatch.displayName, npcMatch.prompt, playerMessage)
         })
 
         // ==================== /任务 ====================
@@ -721,6 +744,64 @@ object Application : KoinComponent {
                 }
             }
         })
+        // ==================== /探索 ====================
+        registry.registerBuiltin("explore", CommandHandler { _, context ->
+            val ctx = context as PlayerContext
+            val locationId = ctx.mapManager.getPlayerLocation(ctx.playerId)
+                ?: return@CommandHandler "位置未初始化。"
+            val currentNode = ctx.mapManager.getNode(locationId)
+                ?: return@CommandHandler "当前节点异常。"
+
+            if (!currentNode.isBoundary) {
+                return@CommandHandler "这里不是边界区域，无法探索未知领域。"
+            }
+
+            // 通知玩家正在生成
+            ctx.reply("正在探索未知区域……")
+
+            // 调用 LLM 生成新区域
+            val scenePrompt = aiConfig.scenes["world_generation"]?.promptTemplate ?: ""
+            val contextInfo = "当前位置：${currentNode.displayName}（${currentNode.description}）"
+
+            val messages = listOf(
+                LLMMessage.System(scenePrompt),
+                LLMMessage.User(contextInfo)
+            )
+
+            val result = llmClient.generate(messages)
+            if (result.isFailure) {
+                return@CommandHandler "探索失败……迷雾太浓了，什么都看不清。"
+            }
+
+            val responseText = result.getOrDefault("")
+            // 尝试解析 JSON 格式的节点数据
+            val newNode = parseGeneratedNode(responseText, locationId)
+            if (newNode != null) {
+                mapManager.addNode(newNode)
+                // 添加从当前节点到新节点的连接
+                val updatedCurrentNode = currentNode.copy(
+                    connections = currentNode.connections + NodeConnection(
+                        target = newNode.key,
+                        display = "→ ${newNode.displayName}"
+                    )
+                )
+                mapManager.addNode(updatedCurrentNode)
+                // 自动移动到新区域
+                mapManager.setPlayerLocation(ctx.playerId, newNode.key)
+
+                buildString {
+                    appendLine("━━━ 发现新区域 ━━━")
+                    appendLine("【${newNode.displayName}】")
+                    appendLine(newNode.description)
+                    appendLine()
+                    appendLine("你进入了这片新区域。")
+                    appendLine("输入 /移动 查看可前往的方向。")
+                }.trimEnd()
+            } else {
+                // JSON 解析失败，直接展示 AI 文本
+                "━━━ 探索结果 ━━━\n$responseText\n\n（区域数据未能自动创建，但你看到了这片景象。）"
+            }
+        })
     }
 
     // ==================== 辅助方法 ====================
@@ -761,6 +842,64 @@ object Application : KoinComponent {
     /**
      * 根据物品子类型自动选择装备槽位
      */
+    /**
+     * 调用 LLM 生成 NPC 对话回复
+     */
+    private suspend fun generateNpcDialogue(
+        llmClient: LLMClient,
+        aiConfig: AIConfig,
+        npcName: String,
+        npcPrompt: String,
+        playerMessage: String
+    ): String {
+        val scenePrompt = aiConfig.scenes["npc_dialogue"]?.promptTemplate ?: ""
+        val messages = listOf(
+            LLMMessage.System(scenePrompt),
+            LLMMessage.System("你扮演的角色：$npcPrompt"),
+            LLMMessage.User(playerMessage)
+        )
+        val result = llmClient.generate(messages)
+        return if (result.isSuccess) {
+            val reply = result.getOrDefault("……")
+            "【$npcName】$reply"
+        } else {
+            "【$npcName】……（NPC 似乎在思考什么，没有回应。）"
+        }
+    }
+
+    /**
+     * 解析 AI 生成的节点 JSON
+     */
+    private fun parseGeneratedNode(responseText: String, parentNodeId: String): MapNodeDefinition? {
+        return try {
+            // 提取 JSON（可能包裹在 markdown code block 中）
+            val jsonStr = responseText
+                .replace("```json", "").replace("```", "")
+                .trim()
+            val gson = com.google.gson.Gson()
+            val json = gson.fromJson(jsonStr, com.google.gson.JsonObject::class.java)
+
+            val name = json.get("name")?.asString ?: return null
+            val description = json.get("description")?.asString ?: ""
+            val tags = json.getAsJsonArray("tags")?.map { it.asString }?.toSet() ?: emptySet()
+
+            // 生成唯一 key
+            val key = "gen_${System.currentTimeMillis()}"
+
+            MapNodeDefinition(
+                key = key,
+                displayName = name,
+                description = description,
+                tags = tags,
+                connections = listOf(NodeConnection(target = parentNodeId, display = "→ 返回")),
+                isBoundary = true // 生成的节点也可以继续探索
+            )
+        } catch (e: Exception) {
+            println("Warning: Failed to parse generated node: ${e.message}")
+            null
+        }
+    }
+
     private fun autoSelectSlot(subType: org.textrpg.application.domain.model.ItemSubType): EquipmentSlot? {
         return when (subType) {
             org.textrpg.application.domain.model.ItemSubType.WEAPON -> EquipmentSlot.WEAPON
