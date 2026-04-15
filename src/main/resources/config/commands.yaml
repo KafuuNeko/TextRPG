@@ -89,3 +89,47 @@ commands:
     handler: "builtin:status"
     requires:
       registered: true
+
+  move:
+    displayName: "移动"
+    aliases: ["移动", "go", "走", "前往"]
+    description: "移动到相邻区域"
+    params:
+      - name: "target"
+        type: "string"
+        required: true
+    handler: "builtin:move"
+    requires:
+      registered: true
+
+  inventory:
+    displayName: "背包"
+    aliases: ["背包", "bag", "inv", "物品"]
+    description: "查看背包物品"
+    handler: "builtin:inventory"
+    requires:
+      registered: true
+
+  equip:
+    displayName: "装备"
+    aliases: ["装备", "eq"]
+    description: "装备物品或查看装备栏"
+    params:
+      - name: "item_name"
+        type: "string"
+        required: false
+    handler: "builtin:equip"
+    requires:
+      registered: true
+
+  unequip:
+    displayName: "卸下"
+    aliases: ["卸下", "脱下", "uneq"]
+    description: "卸下装备"
+    params:
+      - name: "slot_name"
+        type: "string"
+        required: true
+    handler: "builtin:unequip"
+    requires:
+      registered: true

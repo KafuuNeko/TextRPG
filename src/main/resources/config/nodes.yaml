@@ -13,4 +13,105 @@
 #       enemies: ["enemy_id"]
 #     isBoundary: false
 
-nodes: {}
+nodes:
+  village_square:
+    displayName: "村庄广场"
+    description: "宁静的村庄中心，阳光洒在石板路上。村长和药师在这里忙碌着。"
+    tags: ["safe_zone"]
+    connections:
+      - target: "blacksmith"
+        display: "→ 铁匠铺"
+      - target: "inn"
+        display: "→ 旅馆"
+      - target: "village_gate"
+        display: "→ 村口"
+    entities:
+      npcs: ["village_elder", "herbalist"]
+
+  blacksmith:
+    displayName: "铁匠铺"
+    description: "炉火通明的铁匠铺，铁锤敲打声不绝于耳。各式武器和铠甲陈列在货架上。"
+    tags: ["safe_zone", "shop"]
+    connections:
+      - target: "village_square"
+        display: "→ 村庄广场"
+    entities:
+      npcs: ["blacksmith"]
+
+  inn:
+    displayName: "旅馆"
+    description: "温馨的旅馆，弥漫着麦酒和烤肉的香气。角落里坐着一位神秘的旅人。"
+    tags: ["safe_zone"]
+    connections:
+      - target: "village_square"
+        display: "→ 村庄广场"
+    entities:
+      npcs: ["traveler"]
+
+  village_gate:
+    displayName: "村口"
+    description: "村庄的入口，一条土路向南延伸。路旁的告示牌写着：前方危险，冒险者请小心。"
+    tags: ["safe_zone"]
+    connections:
+      - target: "village_square"
+        display: "→ 村庄广场"
+      - target: "herb_field"
+        display: "→ 药草田"
+      - target: "forest_path"
+        display: "→ 森林小径"
+
+  herb_field:
+    displayName: "药草田"
+    description: "村庄东边的一片草地，各种药草在微风中摇曳。"
+    tags: ["safe_zone", "gatherable"]
+    connections:
+      - target: "village_gate"
+        display: "→ 村口"
+
+  forest_path:
+    displayName: "森林小径"
+    description: "通往深林的蜿蜒小径，偶尔能看到史莱姆在草丛中蹦跳。"
+    tags: ["combat_zone"]
+    connections:
+      - target: "village_gate"
+        display: "→ 村口"
+      - target: "deep_forest"
+        display: "→ 深林"
+      - target: "bandit_camp"
+        display: "→ 盗贼营地"
+        requires:
+          minAttribute:
+            level: 3
+    entities:
+      enemies: ["slime"]
+
+  deep_forest:
+    displayName: "深林"
+    description: "密林深处，树冠遮蔽了阳光。哥布林的笑声和狼嚎隐约可闻。"
+    tags: ["combat_zone"]
+    connections:
+      - target: "forest_path"
+        display: "→ 森林小径"
+    entities:
+      enemies: ["goblin", "wolf"]
+
+  bandit_camp:
+    displayName: "盗贼营地"
+    description: "一片被盗贼占据的营地，帐篷和篝火的残骸散落四周。"
+    tags: ["combat_zone"]
+    connections:
+      - target: "forest_path"
+        display: "→ 森林小径"
+      - target: "mystery_cave"
+        display: "→ 神秘洞穴"
+    entities:
+      enemies: ["bandit_leader"]
+
+  mystery_cave:
+    displayName: "神秘洞穴"
+    description: "洞口散发着微弱的光芒，深处似乎隐藏着未知的世界……"
+    tags: ["boundary"]
+    connections:
+      - target: "bandit_camp"
+        display: "→ 盗贼营地"
+    isBoundary: true

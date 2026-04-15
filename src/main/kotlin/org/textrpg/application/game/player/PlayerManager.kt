@@ -7,6 +7,7 @@ import org.textrpg.application.domain.model.BuffDefinition
 import org.textrpg.application.game.attribute.AttributeContainer
 import org.textrpg.application.game.buff.BuffManager
 import org.textrpg.application.game.command.SessionManager
+import org.textrpg.application.game.inventory.InventoryService
 import org.textrpg.application.game.map.MapManager
 import java.util.concurrent.ConcurrentHashMap
 
@@ -21,16 +22,18 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * @param playerRepository  玩家仓储
  * @param attributeDefinitions 属性定义（从 YAML 加载）
- * @param buffDefinitions   Buff 定义（从 YAML 加载，Phase 3 接入）
+ * @param buffDefinitions   Buff 定义（Phase 3 接入）
  * @param sessionManager    会话管理器
- * @param mapManager        地图管理器（可选，Phase 2 接入）
+ * @param mapManager        地图管理器
+ * @param inventoryService  背包服务
  */
 class PlayerManager(
     private val playerRepository: PlayerRepository,
     private val attributeDefinitions: Map<String, AttributeDefinition>,
     private val buffDefinitions: Map<String, BuffDefinition>,
     private val sessionManager: SessionManager,
-    private val mapManager: MapManager?
+    private val mapManager: MapManager,
+    private val inventoryService: InventoryService
 ) {
 
     /**
@@ -80,6 +83,7 @@ class PlayerManager(
             buffManager = null,
             sessionManager = sessionManager,
             mapManager = mapManager,
+            inventoryService = inventoryService,
             replier = replier
         )
     }
@@ -88,7 +92,7 @@ class PlayerManager(
      * 注册新角色
      *
      * 创建数据库记录、初始化属性（使用 YAML 中的 defaultValue），
-     * 将初始属性快照落盘，并刷新缓存。
+     * 将初始属性快照落盘，设置初始地图位置，并刷新缓存。
      *
      * @param name        角色名
      * @param bindAccount 绑定的社交平台账号 ID
@@ -102,18 +106,34 @@ class PlayerManager(
 
         // 初始化属性容器（所有属性取 YAML 中的 defaultValue）
         val attributes = AttributeContainer(attributeDefinitions)
-
-        // current_hp / current_mp 初始化为对应上限值
         initResourceAttributes(attributes)
 
         // 持久化初始属性快照
         playerRepository.saveAttributeData(player.id, attributes.serializeBaseValues())
+
+        // 设置初始位置：村庄广场
+        mapManager.setPlayerLocation(player.id, "village_square")
 
         // 写入缓存
         val buffManager = BuffManager(buffDefinitions, attributes)
         cache[bindAccount] = CachedPlayerData(player.id, bindAccount, attributes, buffManager)
 
         return player
+    }
+
+    /**
+     * 给玩家添加初始物品
+     *
+     * 注册后调用，赠送新手装备和消耗品。
+     * 分离出来是因为需要 ItemSeeder 先完成模板播种。
+     *
+     * @param playerId 玩家 ID
+     * @param startingItems 初始物品列表（templateId → quantity）
+     */
+    fun giveStartingItems(playerId: Long, startingItems: Map<Int, Int>) {
+        for ((templateId, quantity) in startingItems) {
+            inventoryService.addItem(playerId, templateId, quantity)
+        }
     }
 
     /**
@@ -151,9 +171,6 @@ class PlayerManager(
 
     // ======================== 内部方法 ========================
 
-    /**
-     * 从数据库加载玩家数据并写入缓存
-     */
     private fun loadAndCache(player: Player): CachedPlayerData {
         val attributes = AttributeContainer(attributeDefinitions)
         if (player.attributeData.isNotBlank() && player.attributeData != "{}") {
@@ -162,12 +179,15 @@ class PlayerManager(
         val buffManager = BuffManager(buffDefinitions, attributes)
         val cached = CachedPlayerData(player.id, player.bindAccount, attributes, buffManager)
         cache[player.bindAccount] = cached
+
+        // 确保玩家有地图位置（DB 恢复后可能丢失内存位置）
+        if (mapManager.getPlayerLocation(player.id) == null) {
+            mapManager.setPlayerLocation(player.id, "village_square")
+        }
+
         return cached
     }
 
-    /**
-     * 从缓存数据构建 PlayerContext
-     */
     private fun buildContext(cached: CachedPlayerData, replier: suspend (String) -> Unit): PlayerContext {
         return PlayerContext(
             playerId = cached.playerId,
@@ -177,15 +197,13 @@ class PlayerManager(
             buffManager = cached.buffManager,
             sessionManager = sessionManager,
             mapManager = mapManager,
+            inventoryService = inventoryService,
             replier = replier
         )
     }
 
     /**
      * 初始化资源属性（current_hp = max_hp, current_mp = max_mp）
-     *
-     * 角色创建时，当前生命/魔力应等于上限。
-     * 由于 current_hp/current_mp 通过 boundMax 约束，直接设置为一个足够大的值即可。
      */
     private fun initResourceAttributes(attributes: AttributeContainer) {
         val maxHp = attributes.getValue("max_hp")

@@ -4,6 +4,7 @@ import org.textrpg.application.game.attribute.AttributeContainer
 import org.textrpg.application.game.buff.BuffManager
 import org.textrpg.application.game.command.CommandContext
 import org.textrpg.application.game.command.SessionManager
+import org.textrpg.application.game.inventory.InventoryService
 import org.textrpg.application.game.map.MapManager
 
 /**
@@ -21,7 +22,8 @@ import org.textrpg.application.game.map.MapManager
  * @param attributeContainer 属性容器（未注册时为 null）
  * @param buffManager  Buff 管理器（未注册时为 null）
  * @param sessionManager 会话管理器
- * @param mapManager   地图管理器（可选，Phase 2 接入）
+ * @param mapManager   地图管理器
+ * @param inventoryService 背包服务
  * @param replier      当前消息的回复函数
  */
 class PlayerContext(
@@ -31,7 +33,8 @@ class PlayerContext(
     val attributeContainer: AttributeContainer?,
     val buffManager: BuffManager?,
     private val sessionManager: SessionManager,
-    private val mapManager: MapManager?,
+    val mapManager: MapManager,
+    val inventoryService: InventoryService,
     private val replier: suspend (String) -> Unit
 ) : CommandContext {
 
@@ -50,12 +53,13 @@ class PlayerContext(
 
     override fun getCurrentNodeTags(): Set<String> {
         if (playerId <= 0) return emptySet()
-        return mapManager?.getNodeTags(playerId) ?: emptySet()
+        return mapManager.getNodeTags(playerId)
     }
 
     override fun hasItem(itemId: String, quantity: Int): Boolean {
-        // Phase 2 接入 InventoryService
-        return false
+        if (playerId <= 0) return false
+        val templateId = itemId.toIntOrNull() ?: return false
+        return inventoryService.hasItem(playerId, templateId, quantity)
     }
 
     override fun hasBuff(buffId: String): Boolean {
