@@ -26,15 +26,18 @@ fun interface CommandHandler {
  * - `"builtin:xxx"` → 查找名为 `xxx` 的内置处理器
  * - `"script:xxx.kts"` → 加载并执行脚本（由游戏层实现脚本加载逻辑）
  *
- * 使用示例：
+ * **三种注册路径**：
+ *
+ * | 路径 | 创建方式 | 适用场景 |
+ * |------|----------|----------|
+ * | [registerBuiltin]（闭包） | lambda / SAM | 简单指令、依赖少 |
+ * | [registerAll]（类 + 批量） | [NamedCommandHandler] 实例 | 依赖多、需要 Koin 注入与单测 |
+ * | [scriptHandlerFactory] | `.kts` 动态编译 | 脚本热更新、运行时扩展 |
+ *
+ * 用法示例：
  * ```kotlin
- * val registry = CommandHandlerRegistry()
- * registry.registerBuiltin("status") { args, ctx ->
- *     "你的生命值：${ctx.getAttributeValue("current_hp")}"
- * }
- * registry.registerBuiltin("help") { args, ctx ->
- *     "可用指令：/status, /move, /help"
- * }
+ * registry.registerBuiltin("ping") { _, _ -> "pong" }
+ * registry.registerAll(getKoin().getAll<NamedCommandHandler>())
  * ```
  */
 class CommandHandlerRegistry {
@@ -49,10 +52,24 @@ class CommandHandlerRegistry {
      * 注册内置处理器
      *
      * @param name 处理器名称（对应 handler 字段中 `builtin:` 后面的部分）
-     * @param handler 处理器实现
+     * @param handler 处理器实现（可以是 lambda 或实现 [CommandHandler] 的类）
      */
     fun registerBuiltin(name: String, handler: CommandHandler) {
         builtinHandlers[name] = handler
+    }
+
+    /**
+     * 批量注册 [NamedCommandHandler] 类实例
+     *
+     * 与 [scriptHandlerFactory] 通道对称：脚本通道按需创建，本通道一次性装载。
+     * 典型用法是从 Koin `getAll<NamedCommandHandler>()` 拿到所有实例后统一注册。
+     *
+     * 同名 Handler 重复注册时**后者覆盖前者**（日志由调用方自行决定）。
+     *
+     * @param handlers 要注册的 Handler 列表
+     */
+    fun registerAll(handlers: List<NamedCommandHandler>) {
+        handlers.forEach { builtinHandlers[it.name] = it }
     }
 
     /**
