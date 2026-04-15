@@ -30,9 +30,13 @@ import org.textrpg.application.game.equipment.EquipmentService
 import org.textrpg.application.game.inventory.InventoryService
 import org.textrpg.application.game.inventory.ItemStatsParser
 import org.textrpg.application.game.map.MapManager
+import org.textrpg.application.game.npc.NpcManager
 import org.textrpg.application.game.player.ItemSeeder
 import org.textrpg.application.game.player.PlayerContext
 import org.textrpg.application.game.player.PlayerManager
+import org.textrpg.application.game.quest.QuestEvent
+import org.textrpg.application.game.quest.QuestManager
+import org.textrpg.application.game.quest.QuestStatus
 import org.textrpg.application.game.skill.CooldownManager
 import org.textrpg.application.game.skill.SkillEngine
 import org.textrpg.application.utils.script.KotlinScriptRunner
@@ -88,9 +92,12 @@ object Application : KoinComponent {
         val skillConfig = SkillConfigLoader.load()
         val buffConfig = BuffConfigLoader.load()
         val combatConfigResult = CombatConfigLoader.load()
+        val npcConfig = NpcConfigLoader.load()
+        val questConfig = QuestConfigLoader.load()
 
         println("已加载 ${attributeDefinitions.size} 个属性，${commandConfig.commands.size} 个指令，${mapConfig.nodes.size} 个地图节点")
         println("已加载 ${skillConfig.skills.size} 个技能，${buffConfig.buffs.size} 个Buff，${combatConfigResult.enemies.size} 个敌人")
+        println("已加载 ${npcConfig.npcs.size} 个NPC，${questConfig.quests.size} 个任务")
 
         // ========== 播种物品模板 ==========
         val seeded = ItemSeeder.seed(itemRepository)
@@ -123,6 +130,10 @@ object Application : KoinComponent {
             coroutineScope = gameScope
         )
 
+        // NPC / 任务子系统
+        val npcManager = NpcManager(npcConfig)
+        val questManager = QuestManager(questConfig.quests)
+
         val playerManager = PlayerManager(
             playerRepository = playerRepository,
             attributeDefinitions = attributeDefinitions,
@@ -141,7 +152,10 @@ object Application : KoinComponent {
             equipmentService = equipmentService,
             combatSessionFactory = combatSessionFactory,
             combatConfigResult = combatConfigResult,
-            skillConfig = skillConfig
+            skillConfig = skillConfig,
+            npcManager = npcManager,
+            questManager = questManager,
+            questConfig = questConfig
         )
 
         // ========== OneBot 消息监听 ==========
@@ -199,7 +213,10 @@ object Application : KoinComponent {
         equipmentService: EquipmentService,
         combatSessionFactory: CombatSessionFactory,
         combatConfigResult: CombatConfigResult,
-        skillConfig: SkillConfig
+        skillConfig: SkillConfig,
+        npcManager: NpcManager,
+        questManager: QuestManager,
+        questConfig: QuestConfig
     ) {
         // ==================== /注册 ====================
         registry.registerBuiltin("register", CommandHandler { args, context ->
@@ -323,6 +340,8 @@ object Application : KoinComponent {
 
             val moveResult = mapManager.move(ctx.playerId, targetNodeId, ctx)
             if (moveResult.success) {
+                // 触发任务事件：到达节点
+                questManager.onEvent(QuestEvent.NodeReached(ctx.playerId, targetNodeId))
                 moveResult.message ?: "已移动。"
             } else {
                 moveResult.message ?: "移动失败。"
@@ -510,8 +529,196 @@ object Application : KoinComponent {
                 "战斗创建失败，敌人不存在。"
             } else {
                 // 战斗会话已注册，后续消息由 CombatSession 接管
-                // 战斗开始消息由 CombatSession 内部发送
                 null
+            }
+        })
+
+        // ==================== /对话 ====================
+        registry.registerBuiltin("dialogue", CommandHandler { args, context ->
+            val ctx = context as PlayerContext
+            val locationId = ctx.mapManager.getPlayerLocation(ctx.playerId)
+                ?: return@CommandHandler "位置未初始化。"
+
+            val npcsHere = npcManager.getNpcsAtNode(locationId)
+            if (npcsHere.isEmpty()) {
+                return@CommandHandler "这里没有可以对话的人。"
+            }
+
+            if (args.isEmpty()) {
+                if (npcsHere.size == 1) {
+                    val npc = npcsHere.first()
+                    questManager.onEvent(QuestEvent.NpcTalked(ctx.playerId, npc.key))
+                    return@CommandHandler npcManager.startDialogue(ctx.playerId, npc.key)
+                }
+                val names = npcsHere.joinToString("、") { it.displayName }
+                return@CommandHandler "这里有：$names\n用法：/对话 <NPC名>"
+            }
+
+            val input = args.joinToString(" ")
+            val npc = npcsHere.find { it.displayName == input || it.displayName.contains(input) || it.key == input }
+                ?: return@CommandHandler "这里没有「$input」。"
+
+            questManager.onEvent(QuestEvent.NpcTalked(ctx.playerId, npc.key))
+            npcManager.startDialogue(ctx.playerId, npc.key)
+        })
+
+        // ==================== /任务 ====================
+        registry.registerBuiltin("quest", CommandHandler { args, context ->
+            val ctx = context as PlayerContext
+            val action = args.firstOrNull() ?: ""
+
+            when (action) {
+                "接取", "accept" -> {
+                    // 接取任务：查找当前节点 NPC 提供的任务
+                    val locationId = ctx.mapManager.getPlayerLocation(ctx.playerId) ?: return@CommandHandler "位置未初始化。"
+                    val npcsHere = npcManager.getNpcsAtNode(locationId)
+                    val availableQuests = npcsHere.flatMap { npc ->
+                        npc.functions
+                            .filter { it.type == "quest_giver" }
+                            .flatMap { func -> func.params["quest_ids"]?.split(",")?.map { it.trim() } ?: emptyList() }
+                    }
+                    if (availableQuests.isEmpty()) {
+                        return@CommandHandler "这里没有可接取的任务。"
+                    }
+                    // 尝试接取所有可用任务中的第一个未接取的
+                    for (qid in availableQuests) {
+                        val status = questManager.getQuestStatus(ctx.playerId, qid)
+                        if (status == null || status == QuestStatus.TURNED_IN) {
+                            val result = questManager.acceptQuest(ctx.playerId, qid, ctx)
+                            return@CommandHandler result.message ?: "操作完成。"
+                        }
+                    }
+                    "当前没有可接取的新任务。"
+                }
+                "交付", "turnin" -> {
+                    // 交付已完成的任务
+                    val activeQuests = questManager.getActiveQuests(ctx.playerId)
+                    val completedQuest = activeQuests.find { it.status == QuestStatus.COMPLETED }
+                    if (completedQuest == null) {
+                        return@CommandHandler "没有可交付的任务。"
+                    }
+                    // 创建简易 EntityAccessor 用于发放奖励
+                    val attrs = ctx.attributeContainer ?: return@CommandHandler "属性数据异常。"
+                    val accessor = object : org.textrpg.application.game.buff.BuffAwareEntityAccessor(
+                        attrs, ctx.buffManager ?: org.textrpg.application.game.buff.BuffManager(emptyMap(), attrs)
+                    ) {
+                        override val entityId: String = ctx.playerId.toString()
+                        override fun hasItem(itemId: String, quantity: Int) = ctx.inventoryService.hasItem(ctx.playerId, itemId.toIntOrNull() ?: 0, quantity)
+                        override fun giveItem(itemId: String, quantity: Int) {
+                            val tid = itemId.toIntOrNull() ?: return
+                            ctx.inventoryService.addItem(ctx.playerId, tid, quantity)
+                        }
+                        override fun removeItem(itemId: String, quantity: Int) {
+                            val tid = itemId.toIntOrNull() ?: return
+                            ctx.inventoryService.removeItem(ctx.playerId, tid, quantity)
+                        }
+                        override suspend fun sendMessage(message: String) { ctx.reply(message) }
+                    }
+                    val result = questManager.turnInQuest(ctx.playerId, completedQuest.questId, accessor)
+                    result.message ?: "操作完成。"
+                }
+                else -> {
+                    // 默认：显示当前任务列表
+                    val activeQuests = questManager.getActiveQuests(ctx.playerId)
+                    if (activeQuests.isEmpty()) {
+                        return@CommandHandler "━━━ 任务 ━━━\n（没有进行中的任务）\n提示：与 NPC 对话后输入 /任务 接取"
+                    }
+                    buildString {
+                        appendLine("━━━ 任务 ━━━")
+                        for (progress in activeQuests) {
+                            val def = questConfig.quests[progress.questId]
+                            val name = def?.displayName ?: progress.questId
+                            val statusText = when (progress.status) {
+                                QuestStatus.ACTIVE -> "进行中"
+                                QuestStatus.COMPLETED -> "已完成（可交付）"
+                                else -> progress.status.name
+                            }
+                            appendLine("  $name [$statusText]")
+                            if (def != null) {
+                                for ((i, obj) in def.objectives.withIndex()) {
+                                    val objProgress = progress.objectives.getOrNull(i)
+                                    val cur = objProgress?.current ?: 0
+                                    val req = objProgress?.required ?: obj.quantity
+                                    appendLine("    - ${obj.type.value}: $cur / $req")
+                                }
+                            }
+                        }
+                    }.trimEnd()
+                }
+            }
+        })
+
+        // ==================== /商店 ====================
+        registry.registerBuiltin("shop", CommandHandler { args, context ->
+            val ctx = context as PlayerContext
+            val locationId = ctx.mapManager.getPlayerLocation(ctx.playerId) ?: return@CommandHandler "位置未初始化。"
+            val npcsHere = npcManager.getNpcsAtNode(locationId)
+
+            // 找到有商店功能的 NPC
+            val shopNpc = npcsHere.find { npc ->
+                npc.functions.any { it.type == "shop" }
+            }
+            if (shopNpc == null) {
+                return@CommandHandler "这里没有商店。"
+            }
+            val shopFunc = shopNpc.functions.first { it.type == "shop" }
+            val shopItemIds = shopFunc.params["items"]?.split(",")?.mapNotNull { it.trim().toIntOrNull() } ?: emptyList()
+            val allTemplates = itemRepository.findAllTemplates().associateBy { it.id }
+            val shopItems = shopItemIds.mapNotNull { allTemplates[it] }
+
+            val action = args.firstOrNull() ?: ""
+            val itemName = args.drop(1).joinToString(" ")
+
+            when (action) {
+                "买", "buy" -> {
+                    if (itemName.isBlank()) {
+                        return@CommandHandler "请指定物品名。\n用法：/商店 买 <物品名>"
+                    }
+                    val template = shopItems.find { it.name == itemName || it.name.contains(itemName) }
+                        ?: return@CommandHandler "商店没有「$itemName」。"
+
+                    val gold = ctx.getAttributeValue("gold")?.toInt() ?: 0
+                    if (gold < template.price) {
+                        return@CommandHandler "金币不足（需要 ${template.price}，当前 $gold）。"
+                    }
+                    ctx.modifyAttribute("gold", -template.price.toDouble())
+                    ctx.inventoryService.addItem(ctx.playerId, template.id)
+                    "购买了「${template.name}」，花费 ${template.price} 金币。"
+                }
+                "卖", "sell" -> {
+                    if (itemName.isBlank()) {
+                        return@CommandHandler "请指定物品名。\n用法：/商店 卖 <物品名>"
+                    }
+                    val invItems = itemRepository.findByPlayerId(ctx.playerId)
+                        .filter { it.slotType == org.textrpg.application.domain.model.SlotType.INVENTORY }
+                    val matched = invItems.find { item ->
+                        val tmpl = allTemplates[item.templateId]
+                        tmpl?.name == itemName || tmpl?.name?.contains(itemName) == true
+                    }
+                    if (matched == null) {
+                        return@CommandHandler "背包中没有「$itemName」。"
+                    }
+                    val template = allTemplates[matched.templateId] ?: return@CommandHandler "物品数据异常。"
+                    val sellPrice = template.price / 2
+                    itemRepository.delete(matched.id)
+                    ctx.modifyAttribute("gold", sellPrice.toDouble())
+                    "卖出了「${template.name}」，获得 $sellPrice 金币。"
+                }
+                else -> {
+                    // 默认：显示商店
+                    buildString {
+                        appendLine("━━━ ${shopNpc.displayName}的商店 ━━━")
+                        val gold = ctx.getAttributeValue("gold")?.toInt() ?: 0
+                        appendLine("你的金币：$gold")
+                        appendLine()
+                        for (item in shopItems) {
+                            appendLine("  ${item.name}  ${item.price} 金币")
+                            if (item.description.isNotBlank()) appendLine("    ${item.description}")
+                        }
+                        appendLine()
+                        appendLine("用法：/商店 买 <物品名>  |  /商店 卖 <物品名>")
+                    }.trimEnd()
+                }
             }
         })
     }

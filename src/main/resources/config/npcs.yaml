@@ -13,4 +13,41 @@
 #         quest_ids: "quest_id"
 #     allowedTools: []
 
-npcs: {}
+npcs:
+  village_elder:
+    displayName: "村长"
+    description: "白发苍苍的老人，目光却炯炯有神。他为村庄的安全操碎了心。"
+    location: "village_square"
+    prompt: "你是一个慈祥但忧心忡忡的村长，村庄周边的盗贼让你夜不能寐。"
+    functions:
+      - type: "quest_giver"
+        quest_ids: "bandit_quest"
+      - type: "dialogue"
+
+  blacksmith:
+    displayName: "铁匠"
+    description: "身材魁梧的铁匠，手臂上满是烧伤的疤痕。他的手艺在方圆百里首屈一指。"
+    location: "blacksmith"
+    prompt: "你是一个寡言少语但技艺精湛的铁匠，只对好武器感兴趣。"
+    functions:
+      - type: "shop"
+        items: "2,5"
+
+  herbalist:
+    displayName: "药师"
+    description: "温和的老妇人，身边总围绕着草药的清香。她需要冒险者帮忙采集药材。"
+    location: "village_square"
+    prompt: "你是一个和蔼的药师，对草药如数家珍，正为药材短缺发愁。"
+    functions:
+      - type: "quest_giver"
+        quest_ids: "herb_quest"
+      - type: "shop"
+        items: "6,7"
+
+  traveler:
+    displayName: "神秘旅人"
+    description: "一位身披斗篷的旅人，眼中闪烁着见过世面的光芒。他似乎知道很多秘密……"
+    location: "inn"
+    prompt: "你是一个神秘的旅人，走遍了大陆各地，知晓许多世界的秘密和传说。"
+    functions:
+      - type: "dialogue"

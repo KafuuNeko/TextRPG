@@ -145,3 +145,39 @@ commands:
     handler: "builtin:battle"
     requires:
       registered: true
+
+  dialogue:
+    displayName: "对话"
+    aliases: ["对话", "talk", "交谈"]
+    description: "与当前区域的 NPC 对话"
+    params:
+      - name: "npc_name"
+        type: "string"
+        required: false
+    handler: "builtin:dialogue"
+    requires:
+      registered: true
+
+  quest:
+    displayName: "任务"
+    aliases: ["任务", "quest"]
+    description: "查看任务 / 接取 / 交付"
+    params:
+      - name: "action"
+        type: "string"
+        required: false
+    handler: "builtin:quest"
+    requires:
+      registered: true
+
+  shop:
+    displayName: "商店"
+    aliases: ["商店", "买", "卖"]
+    description: "NPC 商店买卖"
+    params:
+      - name: "action"
+        type: "string"
+        required: false
+    handler: "builtin:shop"
+    requires:
+      registered: true

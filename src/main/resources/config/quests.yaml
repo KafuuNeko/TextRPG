@@ -20,4 +20,38 @@
 #     unlocks:
 #       quests: ["next_quest_id"]
 
-quests: {}
+quests:
+  herb_quest:
+    displayName: "采药委托"
+    description: "药师需要你前往药草田采集草药。"
+    giver: "herbalist"
+    objectives:
+      - type: "reach_node"
+        node: "herb_field"
+        quantity: 1
+    rewards:
+      exp: 50
+      items:
+        - item: "6"
+          quantity: 3
+      attributeChange:
+        gold: 100
+    requires:
+      registered: true
+
+  bandit_quest:
+    displayName: "盗贼讨伐"
+    description: "村长请求你前往盗贼营地，调查近来的盗贼活动。"
+    giver: "village_elder"
+    objectives:
+      - type: "reach_node"
+        node: "bandit_camp"
+        quantity: 1
+    rewards:
+      exp: 300
+      attributeChange:
+        gold: 200
+    requires:
+      registered: true
+      minAttribute:
+        level: 3
