@@ -93,11 +93,11 @@ commands:
   move:
     displayName: "移动"
     aliases: ["移动", "go", "走", "前往"]
-    description: "移动到相邻区域"
+    description: "查看当前区域全貌；带编号或名字时移动到相邻区域"
     params:
       - name: "target"
         type: "string"
-        required: true
+        required: false
     handler: "builtin:move"
     requires:
       registered: true
@@ -125,11 +125,11 @@ commands:
   unequip:
     displayName: "卸下"
     aliases: ["卸下", "脱下", "uneq"]
-    description: "卸下装备"
+    description: "无参显示已装备列表；带编号或槽位名时卸下对应装备"
     params:
       - name: "slot_name"
         type: "string"
-        required: true
+        required: false
     handler: "builtin:unequip"
     requires:
       registered: true

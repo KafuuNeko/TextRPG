@@ -35,6 +35,7 @@ import org.textrpg.application.game.player.ItemSeeder
 import org.textrpg.application.adapter.llm.model.LLMMessage
 import org.textrpg.application.domain.model.MapNodeDefinition
 import org.textrpg.application.domain.model.NodeConnection
+import org.textrpg.application.domain.model.NodeEntities
 import org.textrpg.application.game.player.PlayerContext
 import org.textrpg.application.game.player.PlayerManager
 import org.textrpg.application.game.quest.QuestEvent
@@ -260,6 +261,113 @@ object Application : KoinComponent {
         llmClient: LLMClient,
         aiConfig: AIConfig
     ) {
+        // ==================== 辅助闭包 ====================
+
+        /**
+         * 构建当前节点的完整信息视图：方向、NPC（含任务/商店标签）、敌人、边界提示。
+         * 每个列表都带编号，可被对应指令用作索引。
+         */
+        val buildRichNodeInfo: (PlayerContext) -> String = buildRichNodeInfo@{ ctx ->
+            val locationId = mapManager.getPlayerLocation(ctx.playerId)
+                ?: return@buildRichNodeInfo "位置未初始化。"
+            val node = mapManager.getNode(locationId)
+                ?: return@buildRichNodeInfo "节点数据异常。"
+
+            val availableConns = mapManager.getAvailableConnections(ctx.playerId, ctx)
+            val npcsHere = npcManager.getNpcsAtNode(locationId)
+            val enemiesHere = node.entities.enemies
+            val hasShop = npcsHere.any { npc -> npc.functions.any { it.type == "shop" } }
+
+            buildString {
+                appendLine("━━━【${node.displayName}】━━━")
+                if (node.description.isNotBlank()) {
+                    appendLine(node.description)
+                }
+
+                // 可前往方向
+                if (availableConns.isNotEmpty()) {
+                    appendLine()
+                    appendLine("〖可前往〗")
+                    availableConns.forEachIndexed { i, conn ->
+                        val targetName = mapManager.getNode(conn.target)?.displayName ?: conn.target
+                        appendLine("  ${i + 1}. → $targetName")
+                    }
+                }
+
+                // 此处 NPC（含商店/可接任务/可交付标签）
+                if (npcsHere.isNotEmpty()) {
+                    appendLine()
+                    appendLine("〖此处的人〗")
+                    npcsHere.forEachIndexed { i, npc ->
+                        val tags = mutableListOf<String>()
+                        if (npc.functions.any { it.type == "shop" }) tags.add("商店")
+
+                        val giverQuestIds = npc.functions
+                            .filter { it.type == "quest_giver" }
+                            .flatMap { func ->
+                                func.params["quest_ids"]?.split(",")?.map { it.trim() } ?: emptyList()
+                            }
+
+                        val acceptable = giverQuestIds.filter { qid ->
+                            val status = questManager.getQuestStatus(ctx.playerId, qid)
+                            status == null || status == QuestStatus.TURNED_IN
+                        }.mapNotNull { qid -> questConfig.quests[qid]?.displayName }
+                        if (acceptable.isNotEmpty()) {
+                            tags.add("可接任务：${acceptable.joinToString("/")}")
+                        }
+
+                        val turnIn = giverQuestIds.filter { qid ->
+                            questManager.isQuestCompleted(ctx.playerId, qid)
+                        }.mapNotNull { qid -> questConfig.quests[qid]?.displayName }
+                        if (turnIn.isNotEmpty()) {
+                            tags.add("可交付：${turnIn.joinToString("/")}")
+                        }
+
+                        val tagText = if (tags.isNotEmpty()) "  · ${tags.joinToString(" · ")}" else ""
+                        appendLine("  ${i + 1}. ${npc.displayName}$tagText")
+                    }
+                }
+
+                // 此处敌人
+                if (enemiesHere.isNotEmpty()) {
+                    appendLine()
+                    appendLine("〖此处的敌人〗")
+                    enemiesHere.forEachIndexed { i, enemyId ->
+                        val name = combatConfigResult.enemies[enemyId]?.displayName ?: enemyId
+                        appendLine("  ${i + 1}. $name")
+                    }
+                }
+
+                // 边界提示
+                if (node.isBoundary) {
+                    appendLine()
+                    appendLine("（此处是边界区域，可使用 /探索 开拓新天地）")
+                }
+
+                // 操作提示
+                val hints = mutableListOf<String>()
+                if (availableConns.isNotEmpty()) hints.add("/移动 <编号>")
+                if (npcsHere.isNotEmpty()) hints.add("/对话 <编号>")
+                if (enemiesHere.isNotEmpty()) hints.add("/战斗 <编号>")
+                if (hasShop) hints.add("/商店")
+                if (hints.isNotEmpty()) {
+                    appendLine()
+                    appendLine("操作提示：${hints.joinToString(" · ")}")
+                }
+            }.trimEnd()
+        }
+
+        /**
+         * 从列表中按编号或名字提取项。编号为 1-based。
+         * 返回 null 表示未匹配。
+         */
+        fun <T> pickFromList(input: String, list: List<T>, nameMatcher: (T, String) -> Boolean): T? {
+            if (input.isBlank()) return null
+            val asIndex = input.toIntOrNull()
+            if (asIndex != null) return list.getOrNull(asIndex - 1)
+            return list.find { nameMatcher(it, input) }
+        }
+
         // ==================== /注册 ====================
         registry.registerBuiltin("register", CommandHandler { args, context ->
             val ctx = context as PlayerContext
@@ -299,7 +407,7 @@ object Application : KoinComponent {
                 appendLine("获得：木剑 x1、治疗药水 x3")
                 appendLine()
                 appendLine("输入 /状态 查看属性")
-                appendLine("输入 /移动 <地名> 探索世界")
+                appendLine("输入 /移动 查看周围环境并开始探索")
             }.trimEnd()
         })
 
@@ -346,45 +454,45 @@ object Application : KoinComponent {
         registry.registerBuiltin("move", CommandHandler { args, context ->
             val ctx = context as PlayerContext
 
+            // 无参数时显示当前节点全貌（rich info）
             if (args.isEmpty()) {
-                // 无参数时显示当前位置和可用方向
-                val locationId = mapManager.getPlayerLocation(ctx.playerId)
-                    ?: return@CommandHandler "位置未初始化，请联系管理员。"
-                return@CommandHandler mapManager.getNodeDescription(locationId)
+                return@CommandHandler buildRichNodeInfo(ctx)
             }
 
             val targetInput = args.joinToString(" ")
 
-            // 支持按节点 key 或显示名匹配
-            val currentNodeId = mapManager.getPlayerLocation(ctx.playerId)
-                ?: return@CommandHandler "位置未初始化。"
-            val currentNode = mapManager.getNode(currentNodeId)
-                ?: return@CommandHandler "当前节点异常。"
+            // 可用连接列表（已过滤 Requires）—— 这也是编号的依据
+            val availableConns = mapManager.getAvailableConnections(ctx.playerId, ctx)
 
-            // 查找目标：先精确匹配 key，再模糊匹配 displayName
-            val targetNodeId = currentNode.connections.find { conn ->
-                conn.target == targetInput
-            }?.target ?: run {
-                // 按显示名查找
-                val matched = currentNode.connections.find { conn ->
-                    val node = mapManager.getNode(conn.target)
-                    node?.displayName == targetInput || node?.displayName?.contains(targetInput) == true
-                }
-                matched?.target
+            // 按编号 / 名字 / key 匹配
+            val targetConn = pickFromList(targetInput, availableConns) { conn, input ->
+                val node = mapManager.getNode(conn.target)
+                conn.target == input
+                    || node?.displayName == input
+                    || node?.displayName?.contains(input) == true
             }
 
-            if (targetNodeId == null) {
-                val available = currentNode.connections.joinToString("、") { conn ->
-                    mapManager.getNode(conn.target)?.displayName ?: conn.target
+            if (targetConn == null) {
+                val listText = availableConns.mapIndexed { i, conn ->
+                    val name = mapManager.getNode(conn.target)?.displayName ?: conn.target
+                    "  ${i + 1}. $name"
+                }.joinToString("\n")
+                return@CommandHandler buildString {
+                    appendLine("无法前往「$targetInput」。")
+                    if (availableConns.isNotEmpty()) {
+                        appendLine("可前往：")
+                        append(listText)
+                    } else {
+                        append("（当前没有可前往的方向）")
+                    }
                 }
-                return@CommandHandler "无法前往「$targetInput」。\n可前往：$available"
             }
 
-            val moveResult = mapManager.move(ctx.playerId, targetNodeId, ctx)
+            val moveResult = mapManager.move(ctx.playerId, targetConn.target, ctx)
             if (moveResult.success) {
-                // 触发任务事件：到达节点
-                questManager.onEvent(QuestEvent.NodeReached(ctx.playerId, targetNodeId))
-                moveResult.message ?: "已移动。"
+                questManager.onEvent(QuestEvent.NodeReached(ctx.playerId, targetConn.target))
+                // 移动成功：展示新节点的完整信息
+                buildRichNodeInfo(ctx)
             } else {
                 moveResult.message ?: "移动失败。"
             }
@@ -430,39 +538,48 @@ object Application : KoinComponent {
             val attrs = ctx.attributeContainer
                 ?: return@CommandHandler "属性数据异常。"
 
-            if (args.isEmpty()) {
-                // 无参数：显示当前装备栏
-                return@CommandHandler showEquipment(ctx.playerId, itemRepository, equipmentService)
-            }
-
-            val itemName = args.joinToString(" ")
-
-            // 在背包中查找匹配物品
-            val invItems = itemRepository.findByPlayerId(ctx.playerId)
-                .filter { it.slotType == org.textrpg.application.domain.model.SlotType.INVENTORY }
-
             val allTemplates = itemRepository.findAllTemplates().associateBy { it.id }
 
-            val matched = invItems.find { item ->
-                val template = allTemplates[item.templateId]
-                template?.name == itemName || template?.name?.contains(itemName) == true
+            // 背包中所有装备类型的物品（编号列表来源）
+            val equippableItems = itemRepository.findByPlayerId(ctx.playerId)
+                .filter { it.slotType == org.textrpg.application.domain.model.SlotType.INVENTORY }
+                .filter { allTemplates[it.templateId]?.type == ItemType.EQUIPMENT }
+
+            if (args.isEmpty()) {
+                // 无参数：显示装备栏 + 可装备列表
+                val equipmentPanel = showEquipment(ctx.playerId, itemRepository, equipmentService)
+                val availablePanel = if (equippableItems.isEmpty()) {
+                    "\n\n〖可装备的物品〗\n  (背包中没有可装备物品)"
+                } else {
+                    buildString {
+                        appendLine()
+                        appendLine()
+                        appendLine("〖可装备的物品〗")
+                        equippableItems.forEachIndexed { i, item ->
+                            val tmpl = allTemplates[item.templateId]
+                            val name = tmpl?.name ?: "未知"
+                            val slotHint = tmpl?.subType?.let { autoSelectSlot(it) }?.let { slotDisplayName(it) } ?: "—"
+                            appendLine("  ${i + 1}. $name  [$slotHint]")
+                        }
+                        append("\n用法：/装备 <编号 或 名字>")
+                    }.trimEnd()
+                }
+                return@CommandHandler equipmentPanel + availablePanel
             }
 
-            if (matched == null) {
-                return@CommandHandler "背包中没有找到「$itemName」。"
-            }
+            val input = args.joinToString(" ")
+
+            val matched = pickFromList(input, equippableItems) { item, inp ->
+                val tmpl = allTemplates[item.templateId]
+                tmpl?.name == inp || tmpl?.name?.contains(inp) == true
+            } ?: return@CommandHandler "背包中没有可装备的「$input」。"
 
             val template = allTemplates[matched.templateId]
                 ?: return@CommandHandler "物品数据异常。"
-
-            if (template.type != ItemType.EQUIPMENT) {
-                return@CommandHandler "「${template.name}」不是装备，无法穿戴。"
-            }
             if (matched.instanceId == null) {
                 return@CommandHandler "物品实例异常。"
             }
 
-            // 自动选择装备槽位
             val slot = autoSelectSlot(template.subType)
                 ?: return@CommandHandler "无法确定「${template.name}」的装备槽位。"
 
@@ -484,13 +601,42 @@ object Application : KoinComponent {
             val attrs = ctx.attributeContainer
                 ?: return@CommandHandler "属性数据异常。"
 
+            // 收集当前已装备的槽位列表（编号来源）
+            val equipment = equipmentService.getEquipment(ctx.playerId)
+            val occupiedSlots = EquipmentSlot.entries.filter { equipment?.getSlot(it) != null }
+
             if (args.isEmpty()) {
-                return@CommandHandler "请指定要卸下的槽位。\n用法：/卸下 <武器/防具/...>"
+                if (occupiedSlots.isEmpty()) {
+                    return@CommandHandler "当前没有穿戴任何装备。"
+                }
+                val allTemplates = itemRepository.findAllTemplates().associateBy { it.id }
+                val panel = buildString {
+                    appendLine("〖可卸下的装备〗")
+                    occupiedSlots.forEachIndexed { i, slot ->
+                        val instanceId = equipment?.getSlot(slot)
+                        val name = instanceId?.let { id ->
+                            itemRepository.findInstanceById(id)?.let { inst ->
+                                allTemplates[inst.templateId]?.name
+                            }
+                        } ?: "—"
+                        appendLine("  ${i + 1}. ${slotDisplayName(slot)}：$name")
+                    }
+                    append("\n用法：/卸下 <编号 或 槽位名>")
+                }.trimEnd()
+                return@CommandHandler panel
             }
 
-            val slotName = args.joinToString(" ")
-            val slot = parseSlotName(slotName)
-                ?: return@CommandHandler "未知的槽位「$slotName」。\n可选：武器、防具、头盔、鞋子、手套、戒指、项链、副手"
+            val input = args.joinToString(" ")
+
+            // 先尝试编号
+            val slot = pickFromList(input, occupiedSlots) { s, inp ->
+                // 名字匹配走 parseSlotName
+                parseSlotName(inp) == s
+            } ?: parseSlotName(input)
+
+            if (slot == null) {
+                return@CommandHandler "未知的槽位「$input」。\n可选：武器、防具、头盔、鞋子、手套、戒指、项链、副手"
+            }
 
             val result = equipmentService.unequip(ctx.playerId, slot, attrs)
             if (result.success) {
@@ -522,22 +668,24 @@ object Application : KoinComponent {
                 return@CommandHandler "这里没有可以战斗的敌人。\n提示：前往带有敌人的区域再试试。"
             }
 
-            // 匹配敌人
+            // 匹配敌人（支持编号）
             val enemyId: String
             if (args.isEmpty()) {
                 if (availableEnemies.size == 1) {
                     enemyId = availableEnemies.first()
                 } else {
-                    val enemyNames = availableEnemies.mapNotNull { id ->
-                        combatConfigResult.enemies[id]?.displayName?.let { "$it ($id)" }
-                    }
-                    return@CommandHandler "这里有多个敌人，请指定目标：\n${enemyNames.joinToString("\n") { "  $it" }}\n用法：/战斗 <敌人名>"
+                    val list = availableEnemies.mapIndexed { i, id ->
+                        val name = combatConfigResult.enemies[id]?.displayName ?: id
+                        "  ${i + 1}. $name"
+                    }.joinToString("\n")
+                    return@CommandHandler "这里有多个敌人，请指定目标：\n$list\n用法：/战斗 <编号 或 敌人名>"
                 }
             } else {
                 val input = args.joinToString(" ")
-                enemyId = availableEnemies.find { id ->
-                    id == input || combatConfigResult.enemies[id]?.displayName == input
-                        || combatConfigResult.enemies[id]?.displayName?.contains(input) == true
+                enemyId = pickFromList(input, availableEnemies) { id, inp ->
+                    id == inp
+                        || combatConfigResult.enemies[id]?.displayName == inp
+                        || combatConfigResult.enemies[id]?.displayName?.contains(inp) == true
                 } ?: return@CommandHandler "这里没有「$input」。"
             }
 
@@ -590,26 +738,34 @@ object Application : KoinComponent {
                 if (npcsHere.size == 1) {
                     val npc = npcsHere.first()
                     questManager.onEvent(QuestEvent.NpcTalked(ctx.playerId, npc.key))
-                    // AI 对话
                     return@CommandHandler generateNpcDialogue(llmClient, aiConfig, npc.displayName, npc.prompt, "你好")
                 }
-                val names = npcsHere.joinToString("、") { it.displayName }
-                return@CommandHandler "这里有：$names\n用法：/对话 <NPC名> [想说的话]"
+                val list = npcsHere.mapIndexed { i, n -> "  ${i + 1}. ${n.displayName}" }.joinToString("\n")
+                return@CommandHandler "这里有：\n$list\n用法：/对话 <编号 或 NPC名> [想说的话]"
             }
 
-            val input = args.joinToString(" ")
-            // 分离 NPC 名称和对话内容：第一个匹配到的 NPC 名后面都是对话内容
-            var npcMatch = npcsHere.find { input.startsWith(it.displayName) }
+            val first = args.first()
+
+            // 1) 纯编号：/对话 2 或 /对话 2 你好
+            val asIndex = first.toIntOrNull()
+            val npcMatch: org.textrpg.application.domain.model.NpcDefinition?
             val playerMessage: String
-            if (npcMatch != null) {
-                playerMessage = input.removePrefix(npcMatch.displayName).trim().ifEmpty { "你好" }
+            if (asIndex != null) {
+                npcMatch = npcsHere.getOrNull(asIndex - 1)
+                    ?: return@CommandHandler "编号 $asIndex 超出范围（共 ${npcsHere.size} 位）。"
+                playerMessage = args.drop(1).joinToString(" ").ifEmpty { "你好" }
             } else {
-                // 尝试模糊匹配
-                npcMatch = npcsHere.find { it.displayName.contains(input.split(" ").first()) || it.key == input.split(" ").first() }
-                if (npcMatch != null) {
-                    playerMessage = input.split(" ").drop(1).joinToString(" ").ifEmpty { "你好" }
+                // 2) 名字前缀匹配（原逻辑）：优先完整名前缀
+                val input = args.joinToString(" ")
+                val prefixMatch = npcsHere.find { input.startsWith(it.displayName) }
+                if (prefixMatch != null) {
+                    npcMatch = prefixMatch
+                    playerMessage = input.removePrefix(prefixMatch.displayName).trim().ifEmpty { "你好" }
                 } else {
-                    return@CommandHandler "这里没有「${input.split(" ").first()}」。"
+                    val fuzzy = npcsHere.find { it.displayName.contains(first) || it.key == first }
+                        ?: return@CommandHandler "这里没有「$first」。"
+                    npcMatch = fuzzy
+                    playerMessage = args.drop(1).joinToString(" ").ifEmpty { "你好" }
                 }
             }
 
@@ -622,37 +778,57 @@ object Application : KoinComponent {
             val ctx = context as PlayerContext
             val action = args.firstOrNull() ?: ""
 
+            // 获取当前节点可接任务列表（跨所有 handler 复用）
+            fun getAvailableQuestIds(): List<String> {
+                val locationId = ctx.mapManager.getPlayerLocation(ctx.playerId) ?: return emptyList()
+                val npcsHere = npcManager.getNpcsAtNode(locationId)
+                return npcsHere.flatMap { npc ->
+                    npc.functions
+                        .filter { it.type == "quest_giver" }
+                        .flatMap { func ->
+                            func.params["quest_ids"]?.split(",")?.map { it.trim() } ?: emptyList()
+                        }
+                }.filter { qid ->
+                    val status = questManager.getQuestStatus(ctx.playerId, qid)
+                    status == null || status == QuestStatus.TURNED_IN
+                }.distinct()
+            }
+
             when (action) {
                 "接取", "accept" -> {
-                    // 接取任务：查找当前节点 NPC 提供的任务
-                    val locationId = ctx.mapManager.getPlayerLocation(ctx.playerId) ?: return@CommandHandler "位置未初始化。"
-                    val npcsHere = npcManager.getNpcsAtNode(locationId)
-                    val availableQuests = npcsHere.flatMap { npc ->
-                        npc.functions
-                            .filter { it.type == "quest_giver" }
-                            .flatMap { func -> func.params["quest_ids"]?.split(",")?.map { it.trim() } ?: emptyList() }
-                    }
-                    if (availableQuests.isEmpty()) {
+                    val available = getAvailableQuestIds()
+                    if (available.isEmpty()) {
                         return@CommandHandler "这里没有可接取的任务。"
                     }
-                    // 尝试接取所有可用任务中的第一个未接取的
-                    for (qid in availableQuests) {
-                        val status = questManager.getQuestStatus(ctx.playerId, qid)
-                        if (status == null || status == QuestStatus.TURNED_IN) {
-                            val result = questManager.acceptQuest(ctx.playerId, qid, ctx)
-                            return@CommandHandler result.message ?: "操作完成。"
-                        }
+                    val indexArg = args.getOrNull(1)
+                    val targetQid: String = if (indexArg == null) {
+                        // 无编号：接第一个
+                        available.first()
+                    } else {
+                        pickFromList(indexArg, available) { qid, inp ->
+                            val name = questConfig.quests[qid]?.displayName
+                            qid == inp || name == inp || name?.contains(inp) == true
+                        } ?: return@CommandHandler "没有找到「$indexArg」对应的任务。"
                     }
-                    "当前没有可接取的新任务。"
+                    val result = questManager.acceptQuest(ctx.playerId, targetQid, ctx)
+                    result.message ?: "操作完成。"
                 }
                 "交付", "turnin" -> {
-                    // 交付已完成的任务
                     val activeQuests = questManager.getActiveQuests(ctx.playerId)
-                    val completedQuest = activeQuests.find { it.status == QuestStatus.COMPLETED }
-                    if (completedQuest == null) {
+                    val completedList = activeQuests.filter { it.status == QuestStatus.COMPLETED }
+                    if (completedList.isEmpty()) {
                         return@CommandHandler "没有可交付的任务。"
                     }
-                    // 创建简易 EntityAccessor 用于发放奖励
+                    val indexArg = args.getOrNull(1)
+                    val targetProgress = if (indexArg == null) {
+                        completedList.first()
+                    } else {
+                        pickFromList(indexArg, completedList) { prog, inp ->
+                            val name = questConfig.quests[prog.questId]?.displayName
+                            prog.questId == inp || name == inp || name?.contains(inp) == true
+                        } ?: return@CommandHandler "没有找到「$indexArg」对应的已完成任务。"
+                    }
+
                     val attrs = ctx.attributeContainer ?: return@CommandHandler "属性数据异常。"
                     val accessor = object : org.textrpg.application.game.buff.BuffAwareEntityAccessor(
                         attrs, ctx.buffManager ?: org.textrpg.application.game.buff.BuffManager(emptyMap(), attrs)
@@ -669,34 +845,62 @@ object Application : KoinComponent {
                         }
                         override suspend fun sendMessage(message: String) { ctx.reply(message) }
                     }
-                    val result = questManager.turnInQuest(ctx.playerId, completedQuest.questId, accessor)
+                    val result = questManager.turnInQuest(ctx.playerId, targetProgress.questId, accessor)
                     result.message ?: "操作完成。"
                 }
                 else -> {
-                    // 默认：显示当前任务列表
+                    // 默认：进行中 + 当前节点可接 + 可交付
                     val activeQuests = questManager.getActiveQuests(ctx.playerId)
-                    if (activeQuests.isEmpty()) {
-                        return@CommandHandler "━━━ 任务 ━━━\n（没有进行中的任务）\n提示：与 NPC 对话后输入 /任务 接取"
-                    }
+                    val available = getAvailableQuestIds()
+                    val completed = activeQuests.filter { it.status == QuestStatus.COMPLETED }
+
                     buildString {
                         appendLine("━━━ 任务 ━━━")
-                        for (progress in activeQuests) {
-                            val def = questConfig.quests[progress.questId]
-                            val name = def?.displayName ?: progress.questId
-                            val statusText = when (progress.status) {
-                                QuestStatus.ACTIVE -> "进行中"
-                                QuestStatus.COMPLETED -> "已完成（可交付）"
-                                else -> progress.status.name
-                            }
-                            appendLine("  $name [$statusText]")
-                            if (def != null) {
-                                for ((i, obj) in def.objectives.withIndex()) {
-                                    val objProgress = progress.objectives.getOrNull(i)
-                                    val cur = objProgress?.current ?: 0
-                                    val req = objProgress?.required ?: obj.quantity
-                                    appendLine("    - ${obj.type.value}: $cur / $req")
+
+                        // 进行中
+                        val ongoing = activeQuests.filter { it.status == QuestStatus.ACTIVE }
+                        if (ongoing.isNotEmpty()) {
+                            appendLine("〖进行中〗")
+                            for (progress in ongoing) {
+                                val def = questConfig.quests[progress.questId]
+                                val name = def?.displayName ?: progress.questId
+                                appendLine("  · $name")
+                                if (def != null) {
+                                    for ((i, obj) in def.objectives.withIndex()) {
+                                        val op = progress.objectives.getOrNull(i)
+                                        val cur = op?.current ?: 0
+                                        val req = op?.required ?: obj.quantity
+                                        appendLine("      - ${obj.type.value}: $cur / $req")
+                                    }
                                 }
                             }
+                        }
+
+                        // 可交付
+                        if (completed.isNotEmpty()) {
+                            appendLine()
+                            appendLine("〖可交付〗")
+                            completed.forEachIndexed { i, progress ->
+                                val name = questConfig.quests[progress.questId]?.displayName ?: progress.questId
+                                appendLine("  ${i + 1}. $name")
+                            }
+                            appendLine("  用法：/任务 交付 <编号>")
+                        }
+
+                        // 当前节点可接
+                        if (available.isNotEmpty()) {
+                            appendLine()
+                            appendLine("〖此处可接〗")
+                            available.forEachIndexed { i, qid ->
+                                val name = questConfig.quests[qid]?.displayName ?: qid
+                                appendLine("  ${i + 1}. $name")
+                            }
+                            appendLine("  用法：/任务 接取 <编号>")
+                        }
+
+                        if (ongoing.isEmpty() && completed.isEmpty() && available.isEmpty()) {
+                            appendLine("（当前没有进行中或可接取的任务）")
+                            append("提示：与 NPC 所在区域交谈，或查看地图节点的可接任务提示。")
                         }
                     }.trimEnd()
                 }
@@ -727,10 +931,11 @@ object Application : KoinComponent {
             when (action) {
                 "买", "buy" -> {
                     if (itemName.isBlank()) {
-                        return@CommandHandler "请指定物品名。\n用法：/商店 买 <物品名>"
+                        return@CommandHandler "请指定物品。\n用法：/商店 买 <编号 或 物品名>"
                     }
-                    val template = shopItems.find { it.name == itemName || it.name.contains(itemName) }
-                        ?: return@CommandHandler "商店没有「$itemName」。"
+                    val template = pickFromList(itemName, shopItems) { tmpl, inp ->
+                        tmpl.name == inp || tmpl.name.contains(inp)
+                    } ?: return@CommandHandler "商店没有「$itemName」。"
 
                     val gold = ctx.getAttributeValue("gold")?.toInt() ?: 0
                     if (gold < template.price) {
@@ -742,17 +947,14 @@ object Application : KoinComponent {
                 }
                 "卖", "sell" -> {
                     if (itemName.isBlank()) {
-                        return@CommandHandler "请指定物品名。\n用法：/商店 卖 <物品名>"
+                        return@CommandHandler "请指定物品。\n用法：/商店 卖 <编号 或 物品名>"
                     }
                     val invItems = itemRepository.findByPlayerId(ctx.playerId)
                         .filter { it.slotType == org.textrpg.application.domain.model.SlotType.INVENTORY }
-                    val matched = invItems.find { item ->
+                    val matched = pickFromList(itemName, invItems) { item, inp ->
                         val tmpl = allTemplates[item.templateId]
-                        tmpl?.name == itemName || tmpl?.name?.contains(itemName) == true
-                    }
-                    if (matched == null) {
-                        return@CommandHandler "背包中没有「$itemName」。"
-                    }
+                        tmpl?.name == inp || tmpl?.name?.contains(inp) == true
+                    } ?: return@CommandHandler "背包中没有「$itemName」。"
                     val template = allTemplates[matched.templateId] ?: return@CommandHandler "物品数据异常。"
                     val sellPrice = template.price / 2
                     itemRepository.delete(matched.id)
@@ -760,18 +962,34 @@ object Application : KoinComponent {
                     "卖出了「${template.name}」，获得 $sellPrice 金币。"
                 }
                 else -> {
-                    // 默认：显示商店
+                    // 默认：显示商店（带编号）
+                    val invItems = itemRepository.findByPlayerId(ctx.playerId)
+                        .filter { it.slotType == org.textrpg.application.domain.model.SlotType.INVENTORY }
                     buildString {
                         appendLine("━━━ ${shopNpc.displayName}的商店 ━━━")
                         val gold = ctx.getAttributeValue("gold")?.toInt() ?: 0
                         appendLine("你的金币：$gold")
-                        appendLine()
-                        for (item in shopItems) {
-                            appendLine("  ${item.name}  ${item.price} 金币")
-                            if (item.description.isNotBlank()) appendLine("    ${item.description}")
+                        if (shopItems.isNotEmpty()) {
+                            appendLine()
+                            appendLine("〖售卖〗")
+                            shopItems.forEachIndexed { i, item ->
+                                appendLine("  ${i + 1}. ${item.name}  ${item.price} 金币")
+                                if (item.description.isNotBlank()) appendLine("     ${item.description}")
+                            }
+                        }
+                        if (invItems.isNotEmpty()) {
+                            appendLine()
+                            appendLine("〖你的背包（半价回收）〗")
+                            invItems.forEachIndexed { i, inv ->
+                                val tmpl = allTemplates[inv.templateId]
+                                val name = tmpl?.name ?: "未知"
+                                val sellPrice = (tmpl?.price ?: 0) / 2
+                                val qty = if (inv.quantity > 1) " x${inv.quantity}" else ""
+                                appendLine("  ${i + 1}. $name$qty  ${sellPrice} 金币")
+                            }
                         }
                         appendLine()
-                        appendLine("用法：/商店 买 <物品名>  |  /商店 卖 <物品名>")
+                        append("用法：/商店 买 <编号 或 名字>  |  /商店 卖 <编号 或 名字>")
                     }.trimEnd()
                 }
             }
@@ -788,12 +1006,29 @@ object Application : KoinComponent {
                 return@CommandHandler "这里不是边界区域，无法探索未知领域。"
             }
 
-            // 通知玩家正在生成
             ctx.reply("正在探索未知区域……")
 
-            // 调用 LLM 生成新区域
+            // 已存在的节点名列表，给 AI 避重
+            val existingNodeNames = mapManager.getAllNodeIds()
+                .mapNotNull { mapManager.getNode(it)?.displayName }
+                .filter { it.isNotBlank() }
+                .distinct()
+
+            // 敌人候选池（让 AI 从中挑选，避免引入未定义敌人）
+            val enemyCatalog = combatConfigResult.enemies.map { (id, def) ->
+                "$id (${def.displayName})"
+            }
+
             val scenePrompt = aiConfig.scenes["world_generation"]?.promptTemplate ?: ""
-            val contextInfo = "当前位置：${currentNode.displayName}（${currentNode.description}）"
+            val contextInfo = buildString {
+                appendLine("当前位置：${currentNode.displayName}（${currentNode.description}）")
+                appendLine()
+                appendLine("已存在的区域名称（必须避开，生成与这些完全不同的新区域）：")
+                appendLine(existingNodeNames.joinToString("、"))
+                appendLine()
+                appendLine("可用的敌人 ID 清单（enemies 字段必须从中选 1~2 个，不要编造新 ID）：")
+                appendLine(enemyCatalog.joinToString("、"))
+            }
 
             val messages = listOf(
                 LLMMessage.System(scenePrompt),
@@ -806,11 +1041,10 @@ object Application : KoinComponent {
             }
 
             val responseText = result.getOrDefault("")
-            // 尝试解析 JSON 格式的节点数据
-            val newNode = parseGeneratedNode(responseText, locationId)
+            val validEnemyIds = combatConfigResult.enemies.keys
+            val newNode = parseGeneratedNode(responseText, locationId, validEnemyIds, existingNodeNames)
             if (newNode != null) {
                 mapManager.addNode(newNode)
-                // 添加从当前节点到新节点的连接
                 val updatedCurrentNode = currentNode.copy(
                     connections = currentNode.connections + NodeConnection(
                         target = newNode.key,
@@ -818,19 +1052,12 @@ object Application : KoinComponent {
                     )
                 )
                 mapManager.addNode(updatedCurrentNode)
-                // 自动移动到新区域
                 mapManager.setPlayerLocation(ctx.playerId, newNode.key)
+                questManager.onEvent(QuestEvent.NodeReached(ctx.playerId, newNode.key))
 
-                buildString {
-                    appendLine("━━━ 发现新区域 ━━━")
-                    appendLine("【${newNode.displayName}】")
-                    appendLine(newNode.description)
-                    appendLine()
-                    appendLine("你进入了这片新区域。")
-                    appendLine("输入 /移动 查看可前往的方向。")
-                }.trimEnd()
+                // 进入新区域后直接展示 rich info
+                "━━━ 发现新区域 ━━━\n" + buildRichNodeInfo(ctx)
             } else {
-                // JSON 解析失败，直接展示 AI 文本
                 "━━━ 探索结果 ━━━\n$responseText\n\n（区域数据未能自动创建，但你看到了这片景象。）"
             }
         })
@@ -901,10 +1128,19 @@ object Application : KoinComponent {
 
     /**
      * 解析 AI 生成的节点 JSON
+     *
+     * @param responseText AI 原始回复
+     * @param parentNodeId 来源节点 key（用于双向连接的返回边）
+     * @param validEnemyIds 允许出现的敌人 ID 集合（过滤掉 AI 编造的未定义敌人）
+     * @param existingNodeNames 已存在的节点显示名（若 AI 还是生成了重名，返回 null 让调用方重试/降级）
      */
-    private fun parseGeneratedNode(responseText: String, parentNodeId: String): MapNodeDefinition? {
+    private fun parseGeneratedNode(
+        responseText: String,
+        parentNodeId: String,
+        validEnemyIds: Set<String>,
+        existingNodeNames: List<String>
+    ): MapNodeDefinition? {
         return try {
-            // 提取 JSON（可能包裹在 markdown code block 中）
             val jsonStr = responseText
                 .replace("```json", "").replace("```", "")
                 .trim()
@@ -915,8 +1151,20 @@ object Application : KoinComponent {
             val description = json.get("description")?.asString ?: ""
             val tags = json.getAsJsonArray("tags")?.map { it.asString }?.toSet() ?: emptySet()
 
-            // 生成唯一 key
-            val key = "gen_${System.currentTimeMillis()}"
+            // 避重：和已存在节点名重复则失败
+            if (existingNodeNames.any { it.equals(name.trim(), ignoreCase = true) }) {
+                println("Warning: AI 生成的节点名与已存在节点重复：$name")
+                return null
+            }
+
+            // 过滤敌人：仅保留白名单内的 ID
+            val enemies = json.getAsJsonArray("enemies")
+                ?.mapNotNull { it.asString }
+                ?.filter { it in validEnemyIds }
+                ?: emptyList()
+
+            // 生成唯一 key（加随机后缀避免同毫秒碰撞）
+            val key = "gen_${System.currentTimeMillis()}_${(0..999).random()}"
 
             MapNodeDefinition(
                 key = key,
@@ -924,7 +1172,8 @@ object Application : KoinComponent {
                 description = description,
                 tags = tags,
                 connections = listOf(NodeConnection(target = parentNodeId, display = "→ 返回")),
-                isBoundary = true // 生成的节点也可以继续探索
+                entities = NodeEntities(enemies = enemies),
+                isBoundary = true
             )
         } catch (e: Exception) {
             println("Warning: Failed to parse generated node: ${e.message}")
