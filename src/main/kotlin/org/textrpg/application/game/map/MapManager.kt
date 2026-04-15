@@ -41,7 +41,7 @@ class MapManager(mapConfig: MapConfig) {
     private val nodes: MutableMap<String, MapNodeDefinition> = mapConfig.nodes.toMutableMap()
 
     /** 玩家位置映射（playerId → nodeId） */
-    private val playerLocations = ConcurrentHashMap<String, String>()
+    private val playerLocations = ConcurrentHashMap<Long, String>()
 
     /**
      * 获取节点定义
@@ -56,12 +56,12 @@ class MapManager(mapConfig: MapConfig) {
     /**
      * 获取玩家当前位置
      */
-    fun getPlayerLocation(playerId: String): String? = playerLocations[playerId]
+    fun getPlayerLocation(playerId: Long): String? = playerLocations[playerId]
 
     /**
      * 设置玩家位置（不做移动校验）
      */
-    fun setPlayerLocation(playerId: String, nodeId: String) {
+    fun setPlayerLocation(playerId: Long, nodeId: String) {
         playerLocations[playerId] = nodeId
     }
 
@@ -72,7 +72,7 @@ class MapManager(mapConfig: MapConfig) {
      * @param context 指令上下文（用于 Requires 校验）
      * @return 满足条件的连接列表
      */
-    fun getAvailableConnections(playerId: String, context: CommandContext): List<NodeConnection> {
+    fun getAvailableConnections(playerId: Long, context: CommandContext): List<NodeConnection> {
         val nodeId = playerLocations[playerId] ?: return emptyList()
         val node = nodes[nodeId] ?: return emptyList()
         return node.connections.filter { conn ->
@@ -90,7 +90,7 @@ class MapManager(mapConfig: MapConfig) {
      * @param context 指令上下文
      * @return 移动结果
      */
-    fun move(playerId: String, targetNodeId: String, context: CommandContext): MoveResult {
+    fun move(playerId: Long, targetNodeId: String, context: CommandContext): MoveResult {
         val currentNodeId = playerLocations[playerId]
             ?: return MoveResult.failed("玩家位置未初始化")
 
@@ -161,7 +161,7 @@ class MapManager(mapConfig: MapConfig) {
      *
      * 供 CommandContext 实现使用。
      */
-    fun getNodeTags(playerId: String): Set<String> {
+    fun getNodeTags(playerId: Long): Set<String> {
         val nodeId = playerLocations[playerId] ?: return emptySet()
         return nodes[nodeId]?.tags ?: emptySet()
     }

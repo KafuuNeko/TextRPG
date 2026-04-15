@@ -9,12 +9,12 @@ import org.textrpg.application.domain.entity.PlayerEntity
 /**
  * 玩家领域模型
  *
- * 仅包含玩家基础信息，不包含游戏数值（等级、经验、生命值等）。
- * 游戏数值由独立的数值服务或领域模块管理。
+ * 包含玩家基础信息和属性数据快照。
  *
  * @property id 数据库主键，新建时传 0
  * @property name 玩家名称（全局唯一）
  * @property bindAccount 绑定的社交平台账号 ID（用于将 QQ/微信等平台用户关联到游戏角色）
+ * @property attributeData 属性基础值 JSON 快照（如 {"strength": 15, "current_hp": 80}）
  * @property createdAt 创建时间
  * @property updatedAt 更新时间
  */
@@ -22,6 +22,7 @@ data class Player(
     val id: Long = 0,
     val name: String,
     val bindAccount: String,
+    val attributeData: String = "{}",
     val createdAt: DateTime? = null,
     val updatedAt: DateTime? = null
 )
@@ -89,6 +90,7 @@ class PlayerRepository(private val database: Database) : IRepository<Player, Lon
             PlayerEntity.new {
                 name = entity.name
                 bindAccount = entity.bindAccount
+                attributeData = entity.attributeData
                 createdAt = now
                 updatedAt = now
             }.toPlayer()
@@ -98,6 +100,7 @@ class PlayerRepository(private val database: Database) : IRepository<Player, Lon
             existing.apply {
                 name = entity.name
                 bindAccount = entity.bindAccount
+                attributeData = entity.attributeData
                 updatedAt = DateTime.now()
             }.toPlayer()
         }
@@ -115,10 +118,37 @@ class PlayerRepository(private val database: Database) : IRepository<Player, Lon
         true
     }
 
+    /**
+     * 保存玩家属性数据快照
+     *
+     * 轻量级更新：仅写入 attributeData 和 updatedAt，不触碰其他字段。
+     * 适用于战斗结算、地图切换等安全节点的异步落盘。
+     *
+     * @param playerId 玩家主键
+     * @param attributeData 属性基础值 JSON
+     */
+    fun saveAttributeData(playerId: Long, attributeData: String) = transaction(database) {
+        val existing = PlayerEntity.findById(playerId)
+            ?: error("Player not found: $playerId")
+        existing.attributeData = attributeData
+        existing.updatedAt = DateTime.now()
+    }
+
+    /**
+     * 读取玩家属性数据快照
+     *
+     * @param playerId 玩家主键
+     * @return 属性基础值 JSON，玩家不存在时返回 null
+     */
+    fun loadAttributeData(playerId: Long): String? = transaction(database) {
+        PlayerEntity.findById(playerId)?.attributeData
+    }
+
     private fun PlayerEntity.toPlayer() = Player(
         id = id.value,
         name = name,
         bindAccount = bindAccount,
+        attributeData = attributeData,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

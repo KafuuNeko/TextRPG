@@ -42,7 +42,7 @@ class NpcManager(npcConfig: NpcConfig) {
      * @return NPC 的开场白文本
      */
     @Suppress("UNUSED_PARAMETER") // playerId 预留给 Step 7 LLM 对话上下文
-    fun startDialogue(playerId: String, npcId: String): String {
+    fun startDialogue(playerId: Long, npcId: String): String {
         val npc = npcs[npcId] ?: return "找不到该 NPC。"
 
         val functionsDesc = if (npc.functions.isNotEmpty()) {
@@ -64,7 +64,7 @@ class NpcManager(npcConfig: NpcConfig) {
      * @return NPC 的回复文本
      */
     @Suppress("UNUSED_PARAMETER") // playerId, message 预留给 Step 7 LLM 对话
-    fun processDialogue(playerId: String, npcId: String, message: String): String {
+    fun processDialogue(playerId: Long, npcId: String, message: String): String {
         val npc = npcs[npcId] ?: return "找不到该 NPC。"
         // 占位：Step 7 接入 LLM 后，此处构建 AI prompt 并调用 LLM
         return "【${npc.displayName}】（AI 对话功能将在 Step 7 接入）"

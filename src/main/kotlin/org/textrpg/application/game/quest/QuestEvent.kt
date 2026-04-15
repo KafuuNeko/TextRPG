@@ -16,31 +16,31 @@ package org.textrpg.application.game.quest
  * ```
  */
 sealed class QuestEvent {
-    /** 所有事件都有一个关联的玩家 ID */
-    abstract val playerId: String
+    /** 所有事件都有一个关联的玩家数据库 ID */
+    abstract val playerId: Long
 
     /** 收集了物品 */
     data class ItemCollected(
-        override val playerId: String,
+        override val playerId: Long,
         val itemId: String,
         val quantity: Int = 1
     ) : QuestEvent()
 
     /** 击杀了敌人 */
     data class EnemyKilled(
-        override val playerId: String,
+        override val playerId: Long,
         val enemyId: String
     ) : QuestEvent()
 
     /** 到达了地图节点 */
     data class NodeReached(
-        override val playerId: String,
+        override val playerId: Long,
         val nodeId: String
     ) : QuestEvent()
 
     /** 与 NPC 对话 */
     data class NpcTalked(
-        override val playerId: String,
+        override val playerId: Long,
         val npcId: String
     ) : QuestEvent()
 }

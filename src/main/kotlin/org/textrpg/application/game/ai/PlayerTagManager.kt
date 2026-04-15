@@ -20,40 +20,40 @@ import java.util.concurrent.ConcurrentHashMap
 class PlayerTagManager {
 
     /** 玩家标签映射（playerId → 标签集合） */
-    private val playerTags = ConcurrentHashMap<String, MutableSet<String>>()
+    private val playerTags = ConcurrentHashMap<Long, MutableSet<String>>()
 
     /**
      * 添加标签
      */
-    fun addTag(playerId: String, tag: String) {
+    fun addTag(playerId: Long, tag: String) {
         playerTags.getOrPut(playerId) { ConcurrentHashMap.newKeySet() }.add(tag)
     }
 
     /**
      * 移除标签
      */
-    fun removeTag(playerId: String, tag: String) {
+    fun removeTag(playerId: Long, tag: String) {
         playerTags[playerId]?.remove(tag)
     }
 
     /**
      * 获取玩家的所有标签
      */
-    fun getTags(playerId: String): Set<String> {
+    fun getTags(playerId: Long): Set<String> {
         return playerTags[playerId]?.toSet() ?: emptySet()
     }
 
     /**
      * 检查是否拥有指定标签
      */
-    fun hasTag(playerId: String, tag: String): Boolean {
+    fun hasTag(playerId: Long, tag: String): Boolean {
         return playerTags[playerId]?.contains(tag) == true
     }
 
     /**
      * 清除玩家的所有标签
      */
-    fun clearTags(playerId: String) {
+    fun clearTags(playerId: Long) {
         playerTags.remove(playerId)
     }
 
@@ -65,7 +65,7 @@ class PlayerTagManager {
      * @param playerId 玩家 ID
      * @return Prompt 片段，无标签时返回空字符串
      */
-    fun buildContextPrompt(playerId: String): String {
+    fun buildContextPrompt(playerId: Long): String {
         val tags = getTags(playerId)
         if (tags.isEmpty()) return ""
 

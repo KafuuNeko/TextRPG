@@ -35,7 +35,7 @@ class QuestManager(
 ) {
 
     /** 玩家任务进度映射（playerId → 任务进度列表） */
-    private val playerQuests = ConcurrentHashMap<String, MutableList<QuestProgress>>()
+    private val playerQuests = ConcurrentHashMap<Long, MutableList<QuestProgress>>()
 
     /**
      * 接取任务
@@ -45,7 +45,7 @@ class QuestManager(
      * @param context 指令上下文（用于 Requires 校验）
      * @return 操作结果
      */
-    fun acceptQuest(playerId: String, questId: String, context: CommandContext): QuestResult {
+    fun acceptQuest(playerId: Long, questId: String, context: CommandContext): QuestResult {
         val definition = questDefinitions[questId]
             ?: return QuestResult.failed("任务不存在：$questId")
 
@@ -78,7 +78,7 @@ class QuestManager(
     /**
      * 获取玩家所有活跃任务
      */
-    fun getActiveQuests(playerId: String): List<QuestProgress> {
+    fun getActiveQuests(playerId: Long): List<QuestProgress> {
         return playerQuests[playerId]
             ?.filter { it.status == QuestStatus.ACTIVE || it.status == QuestStatus.COMPLETED }
             ?: emptyList()
@@ -87,14 +87,14 @@ class QuestManager(
     /**
      * 获取指定任务的状态
      */
-    fun getQuestStatus(playerId: String, questId: String): QuestStatus? {
+    fun getQuestStatus(playerId: Long, questId: String): QuestStatus? {
         return getQuestProgress(playerId, questId)?.status
     }
 
     /**
      * 检查任务是否已完成（所有目标达成）
      */
-    fun isQuestCompleted(playerId: String, questId: String): Boolean {
+    fun isQuestCompleted(playerId: Long, questId: String): Boolean {
         return getQuestProgress(playerId, questId)?.status == QuestStatus.COMPLETED
     }
 
@@ -144,7 +144,7 @@ class QuestManager(
      * @param entityAccessor 玩家实体访问器（用于发放奖励）
      * @return 操作结果
      */
-    fun turnInQuest(playerId: String, questId: String, entityAccessor: EntityAccessor): QuestResult {
+    fun turnInQuest(playerId: Long, questId: String, entityAccessor: EntityAccessor): QuestResult {
         val progress = getQuestProgress(playerId, questId)
             ?: return QuestResult.failed("未接取该任务")
 
@@ -202,7 +202,7 @@ class QuestManager(
 
     // ======================== 内部辅助 ========================
 
-    private fun getQuestProgress(playerId: String, questId: String): QuestProgress? {
+    private fun getQuestProgress(playerId: Long, questId: String): QuestProgress? {
         return playerQuests[playerId]?.find { it.questId == questId }
     }
 

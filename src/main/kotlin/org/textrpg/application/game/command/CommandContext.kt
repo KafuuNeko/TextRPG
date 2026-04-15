@@ -11,7 +11,7 @@ package org.textrpg.application.game.command
  * 使用示例：
  * ```kotlin
  * class PlayerCommandContext(
- *     override val playerId: String,
+ *     override val playerId: Long,
  *     private val attributes: AttributeContainer,
  *     private val sessionManager: SessionManager
  * ) : CommandContext {
@@ -23,8 +23,8 @@ package org.textrpg.application.game.command
  */
 interface CommandContext {
 
-    /** 玩家标识符（如 QQ 号） */
-    val playerId: String
+    /** 玩家数据库主键 ID（Players 表的 Long 型自增主键） */
+    val playerId: Long
 
     /** 玩家是否已注册角色 */
     val isRegistered: Boolean

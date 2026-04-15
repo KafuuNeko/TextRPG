@@ -1,5 +1,7 @@
 package org.textrpg.application.game.attribute
 
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import org.textrpg.application.domain.model.AttributeDefinition
 import org.textrpg.application.domain.model.AttributeTier
 import org.textrpg.application.domain.model.Modifier
@@ -210,7 +212,7 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
         }
     }
 
-    // ======================== 快照与调试 ========================
+    // ======================== 快照与持久化 ========================
 
     /**
      * 生成所有属性的快照（属性 key -> 最终有效值）
@@ -219,6 +221,41 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
      */
     fun snapshot(): Map<String, Double> =
         instances.keys.associateWith { getValue(it) }
+
+    /**
+     * 将所有属性基础值序列化为 JSON
+     *
+     * 用于持久化到数据库。仅存储 baseValue，修正器由装备/Buff 重新挂载。
+     *
+     * @return JSON 字符串，如 {"strength": 15, "current_hp": 80}
+     */
+    fun serializeBaseValues(): String {
+        val data = instances.entries.associate { (key, instance) -> key to instance.getBaseValue() }
+        return Gson().toJson(data)
+    }
+
+    /**
+     * 从 JSON 恢复属性基础值
+     *
+     * 将 JSON 中的每个 key-value 对应用到已存在的属性实例上。
+     * 未知的 key 静默忽略，未出现的 key 保持默认值。
+     * 恢复后自动重算所有二级属性。
+     *
+     * @param json JSON 字符串，如 {"strength": 15, "current_hp": 80}
+     */
+    fun deserializeBaseValues(json: String) {
+        if (json.isBlank() || json == "{}") return
+        try {
+            val type = object : TypeToken<Map<String, Double>>() {}.type
+            val data: Map<String, Double> = Gson().fromJson(json, type)
+            for ((key, value) in data) {
+                instances[key]?.setBaseValue(value)
+            }
+            recalculateAllDerived()
+        } catch (e: Exception) {
+            println("Warning: Failed to deserialize attribute data: ${e.message}")
+        }
+    }
 
     // ======================== 触发器系统 ========================
 

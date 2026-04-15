@@ -244,6 +244,18 @@ class ItemRepository(private val database: Database) :
         }
     }
 
+    /**
+     * 删除物品模板
+     *
+     * @param id 模板主键
+     * @return 是否删除成功
+     */
+    fun deleteTemplate(id: Int): Boolean = transaction(database) {
+        val entity = ItemTemplateEntity.findById(id) ?: return@transaction false
+        entity.delete()
+        true
+    }
+
     // ==================== 物品实例 ====================
 
     /**
@@ -291,6 +303,18 @@ class ItemRepository(private val database: Database) :
             randomStats = instance.randomStats
             sockets = instance.sockets
         }.toInstance()
+    }
+
+    /**
+     * 删除物品实例
+     *
+     * @param id 实例主键
+     * @return 是否删除成功
+     */
+    fun deleteInstance(id: Long): Boolean = transaction(database) {
+        val entity = ItemInstanceEntity.findById(id) ?: return@transaction false
+        entity.delete()
+        true
     }
 
     // ==================== 背包 ====================
@@ -431,6 +455,19 @@ class ItemRepository(private val database: Database) :
                 slotGloves = equipment.slotGloves
             }.toEquipment()
         }
+    }
+
+    /**
+     * 删除玩家装备栏记录
+     *
+     * @param playerId 玩家主键
+     * @return 是否删除成功
+     */
+    fun deleteEquipment(playerId: Long): Boolean = transaction(database) {
+        val entity = PlayerEquipmentEntity.find { PlayerEquipments.playerId eq playerId }
+            .firstOrNull() ?: return@transaction false
+        entity.delete()
+        true
     }
 
     /**

@@ -52,7 +52,7 @@ enum class CombatOutcome {
  * @param coroutineScope 协程作用域
  */
 class CombatSession(
-    override val playerId: String,
+    override val playerId: Long,
     private val playerEntity: CombatEntity,
     private val enemyEntity: CombatEntity,
     private val enemyDefinition: EnemyDefinition,

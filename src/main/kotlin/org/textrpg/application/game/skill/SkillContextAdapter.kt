@@ -26,8 +26,8 @@ class SkillContextAdapter(
     private val registered: Boolean = true
 ) : CommandContext {
 
-    override val playerId: String
-        get() = entity.entityId
+    override val playerId: Long
+        get() = entity.entityId.toLongOrNull() ?: 0L
 
     override val isRegistered: Boolean
         get() = registered

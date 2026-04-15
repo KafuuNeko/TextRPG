@@ -20,7 +20,7 @@ import org.textrpg.application.domain.model.Modifier
  */
 interface EntityAccessor {
 
-    /** 实体唯一标识符（如玩家 QQ 号、怪物实例 ID） */
+    /** 实体唯一标识符（玩家为数据库 ID 的字符串形式，怪物为 "enemy:{key}"） */
     val entityId: String
 
     /**

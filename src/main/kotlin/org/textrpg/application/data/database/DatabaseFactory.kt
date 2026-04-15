@@ -18,7 +18,8 @@ class DatabaseFactory(private val config: DatabaseConfig) {
                 ItemTemplates,
                 ItemInstances,
                 PlayerInventories,
-                PlayerEquipments
+                PlayerEquipments,
+                PlayerBuffs
             )
         }
         println("Database initialized: ${config.url}")

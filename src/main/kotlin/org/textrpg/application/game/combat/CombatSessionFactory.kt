@@ -60,7 +60,7 @@ class CombatSessionFactory(
      * @return 创建的战斗会话，敌人不存在时返回 null
      */
     fun createAndStart(
-        playerId: String,
+        playerId: Long,
         enemyId: String,
         playerEntity: EntityAccessor,
         playerSkillIds: List<String>,
@@ -85,7 +85,7 @@ class CombatSessionFactory(
         val (playerAttrContainer, playerBuffMgr) = resolvePlayerComponents(playerEntity)
 
         val player = CombatEntity(
-            entityId = playerId,
+            entityId = playerId.toString(),
             displayName = "你",
             isPlayer = true,
             attributeContainer = playerAttrContainer,
@@ -136,7 +136,7 @@ class CombatSessionFactory(
                 ?: return@AtomicEffectHandler EffectResult.failed("start_session: missing 'enemy_id' param")
 
             val session = createAndStart(
-                playerId = target.entityId,
+                playerId = target.entityId.toLongOrNull() ?: 0L,
                 enemyId = enemyId,
                 playerEntity = target,
                 playerSkillIds = emptyList(), // 由调用方补充或从玩家数据加载

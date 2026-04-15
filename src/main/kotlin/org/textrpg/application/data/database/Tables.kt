@@ -53,6 +53,22 @@ object PlayerEquipments : LongIdTable("player_equipments") {
 object Players : LongIdTable("players") {
     val name = varchar("name", 64).uniqueIndex()
     val bindAccount = varchar("bind_account", 128)
+    /** 属性基础值 JSON 快照，格式：{"strength": 15, "current_hp": 80, ...} */
+    val attributeData = text("attribute_data").default("{}")
     val createdAt = datetime("created_at")
     val updatedAt = datetime("updated_at")
+}
+
+/**
+ * 玩家持久性 Buff 表
+ *
+ * 存储需要跨会话保留的 Buff 状态（如中毒、祝福等非战斗临时 Buff）。
+ * 战斗中的临时 Buff 不在此表存储。
+ */
+object PlayerBuffs : LongIdTable("player_buffs") {
+    val playerId = long("player_id").index()
+    val buffId = varchar("buff_id", 128)
+    val stacks = integer("stacks").default(1)
+    val remainingDuration = integer("remaining_duration").default(-1)
+    val createdAt = datetime("created_at")
 }

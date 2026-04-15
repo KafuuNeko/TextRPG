@@ -15,8 +15,8 @@ interface Session {
     /** 会话类型标识（如 "combat"、"shop"、"dialogue"） */
     val type: String
 
-    /** 绑定的玩家 ID */
-    val playerId: String
+    /** 绑定的玩家数据库 ID */
+    val playerId: Long
 
     /** 会话是否仍然活跃 */
     fun isActive(): Boolean
@@ -60,7 +60,7 @@ interface Session {
 class SessionManager {
 
     /** 活跃会话映射（playerId -> Session） */
-    private val activeSessions = ConcurrentHashMap<String, Session>()
+    private val activeSessions = ConcurrentHashMap<Long, Session>()
 
     /**
      * 获取玩家当前活跃会话
@@ -68,7 +68,7 @@ class SessionManager {
      * @param playerId 玩家 ID
      * @return 活跃会话实例，不在会话中返回 null
      */
-    fun getSession(playerId: String): Session? {
+    fun getSession(playerId: Long): Session? {
         val session = activeSessions[playerId] ?: return null
         // 自动清理已失效的会话
         if (!session.isActive()) {
@@ -84,7 +84,7 @@ class SessionManager {
      * @param playerId 玩家 ID
      * @return 会话类型字符串，不在会话中返回 null
      */
-    fun getSessionType(playerId: String): String? = getSession(playerId)?.type
+    fun getSessionType(playerId: Long): String? = getSession(playerId)?.type
 
     /**
      * 启动新会话
@@ -103,12 +103,12 @@ class SessionManager {
      * @param playerId 玩家 ID
      * @return 被结束的会话实例，没有活跃会话时返回 null
      */
-    fun endSession(playerId: String): Session? {
+    fun endSession(playerId: Long): Session? {
         return activeSessions.remove(playerId)
     }
 
     /**
      * 检查玩家是否在会话中
      */
-    fun isInSession(playerId: String): Boolean = getSession(playerId) != null
+    fun isInSession(playerId: Long): Boolean = getSession(playerId) != null
 }

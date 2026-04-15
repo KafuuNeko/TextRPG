@@ -72,7 +72,7 @@ class AISceneManager(
      */
     suspend fun executeScene(
         sceneName: String,
-        playerId: String,
+        playerId: Long,
         userPrompt: String,
         extraContext: String? = null
     ): AISceneResult {
@@ -167,7 +167,7 @@ class AISceneManager(
      * @return NPC 的回复文本
      */
     suspend fun npcDialogue(
-        playerId: String,
+        playerId: Long,
         npcPrompt: String,
         playerMessage: String
     ): String {
@@ -199,7 +199,7 @@ $availableSkills
 
 Choose one skill to use. Respond with just the skill ID."""
 
-        val result = executeScene("boss_combat", "", prompt)
+        val result = executeScene("boss_combat", 0L, prompt)
         return result.content?.trim() ?: ""
     }
 
@@ -212,7 +212,7 @@ Choose one skill to use. Respond with just the skill ID."""
      * @return AI 生成的描述文本（实际节点创建通过 Tool Call 完成）
      */
     suspend fun generateNode(
-        playerId: String,
+        playerId: Long,
         currentNodeInfo: String,
         worldContext: String
     ): AISceneResult {

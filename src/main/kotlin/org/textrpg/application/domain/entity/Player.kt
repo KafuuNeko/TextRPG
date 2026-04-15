@@ -18,6 +18,7 @@ class PlayerEntity(id: EntityID<Long>) : LongEntity(id) {
 
     var name by Players.name
     var bindAccount by Players.bindAccount
+    var attributeData by Players.attributeData
     var createdAt by Players.createdAt
     var updatedAt by Players.updatedAt
 }
