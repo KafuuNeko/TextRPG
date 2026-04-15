@@ -22,4 +22,97 @@ combat:
   minDamage: 1
   defaultTimeoutSeconds: 60
 
-enemies: {}
+enemies:
+  slime:
+    displayName: "史莱姆"
+    attributes:
+      current_hp: 30
+      max_hp: 30
+      physical_attack: 5
+      defense: 2
+    skills: ["basic_attack"]
+    aiRules:
+      - condition: "1"
+        action: "basic_attack"
+        priority: 1
+    rewards:
+      expFormula: "15"
+      drops:
+        - item: "8"
+          chance: 0.6
+          quantity: "1"
+
+  goblin:
+    displayName: "哥布林"
+    attributes:
+      current_hp: 60
+      max_hp: 60
+      physical_attack: 12
+      defense: 5
+      current_mp: 30
+      max_mp: 30
+    skills: ["basic_attack", "power_strike"]
+    aiRules:
+      - condition: "self.current_hp < self.max_hp * 0.3"
+        action: "defend"
+        priority: 10
+      - condition: "self.current_mp > 14"
+        action: "power_strike"
+        priority: 5
+      - condition: "1"
+        action: "basic_attack"
+        priority: 1
+    rewards:
+      expFormula: "30"
+      drops:
+        - item: "9"
+          chance: 0.5
+          quantity: "1-2"
+
+  wolf:
+    displayName: "野狼"
+    attributes:
+      current_hp: 45
+      max_hp: 45
+      physical_attack: 15
+      agility: 20
+      defense: 3
+    skills: ["basic_attack"]
+    aiRules:
+      - condition: "1"
+        action: "basic_attack"
+        priority: 1
+    rewards:
+      expFormula: "25"
+      drops:
+        - item: "10"
+          chance: 0.4
+          quantity: "1"
+
+  bandit_leader:
+    displayName: "盗贼头目"
+    attributes:
+      current_hp: 120
+      max_hp: 120
+      physical_attack: 20
+      defense: 10
+      intelligence: 8
+      current_mp: 50
+      max_mp: 50
+    skills: ["basic_attack", "power_strike", "heal"]
+    aiRules:
+      - condition: "self.current_hp < self.max_hp * 0.3"
+        action: "heal"
+        priority: 10
+      - condition: "self.current_mp > 14"
+        action: "power_strike"
+        priority: 5
+      - condition: "1"
+        action: "basic_attack"
+        priority: 1
+    rewards:
+      expFormula: "80"
+      drops:
+        - item: "3"
+          chance: 0.2
+          quantity: "1"

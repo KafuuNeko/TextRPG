@@ -9,6 +9,7 @@ import org.textrpg.application.game.buff.BuffManager
 import org.textrpg.application.game.command.SessionManager
 import org.textrpg.application.game.inventory.InventoryService
 import org.textrpg.application.game.map.MapManager
+import org.textrpg.application.game.skill.CooldownManager
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -45,7 +46,8 @@ class PlayerManager(
         val playerId: Long,
         val bindAccount: String,
         val attributeContainer: AttributeContainer,
-        val buffManager: BuffManager
+        val buffManager: BuffManager,
+        val cooldownManager: CooldownManager
     )
 
     /** 在线玩家缓存（bindAccount → CachedPlayerData） */
@@ -84,6 +86,7 @@ class PlayerManager(
             sessionManager = sessionManager,
             mapManager = mapManager,
             inventoryService = inventoryService,
+            cooldownManager = CooldownManager(),
             replier = replier
         )
     }
@@ -116,7 +119,8 @@ class PlayerManager(
 
         // 写入缓存
         val buffManager = BuffManager(buffDefinitions, attributes)
-        cache[bindAccount] = CachedPlayerData(player.id, bindAccount, attributes, buffManager)
+        val cooldownManager = CooldownManager()
+        cache[bindAccount] = CachedPlayerData(player.id, bindAccount, attributes, buffManager, cooldownManager)
 
         return player
     }
@@ -177,7 +181,8 @@ class PlayerManager(
             attributes.deserializeBaseValues(player.attributeData)
         }
         val buffManager = BuffManager(buffDefinitions, attributes)
-        val cached = CachedPlayerData(player.id, player.bindAccount, attributes, buffManager)
+        val cooldownManager = CooldownManager()
+        val cached = CachedPlayerData(player.id, player.bindAccount, attributes, buffManager, cooldownManager)
         cache[player.bindAccount] = cached
 
         // 确保玩家有地图位置（DB 恢复后可能丢失内存位置）
@@ -198,6 +203,7 @@ class PlayerManager(
             sessionManager = sessionManager,
             mapManager = mapManager,
             inventoryService = inventoryService,
+            cooldownManager = cached.cooldownManager,
             replier = replier
         )
     }

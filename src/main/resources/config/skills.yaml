@@ -44,4 +44,53 @@
 #   self / target / all_enemies / all_allies / random_enemy / random_ally / all
 # ============================================================
 
-skills: {}
+skills:
+  basic_attack:
+    displayName: "普通攻击"
+    description: "最基础的物理攻击"
+    effects:
+      - type: "modify_attribute"
+        target: "target"
+        attribute: "current_hp"
+        amount: "-(physical_attack - target_defense * 0.5)"
+
+  fireball:
+    displayName: "火球术"
+    description: "向敌人投掷一团烈火，附带灼烧效果"
+    cost:
+      current_mp: 25
+    cooldown: 2
+    effects:
+      - type: "modify_attribute"
+        target: "target"
+        attribute: "current_hp"
+        amount: "-(magic_attack * 1.5 + 30)"
+      - type: "add_buff"
+        target: "target"
+        buffId: "burn_dot"
+        stacks: 1
+        duration: 3
+
+  heal:
+    displayName: "治疗术"
+    description: "恢复自身生命值"
+    cost:
+      current_mp: 20
+    cooldown: 1
+    effects:
+      - type: "modify_attribute"
+        target: "self"
+        attribute: "current_hp"
+        amount: "intelligence * 2 + 50"
+
+  power_strike:
+    displayName: "强力一击"
+    description: "蓄力后发出一记重击"
+    cost:
+      current_mp: 15
+    cooldown: 3
+    effects:
+      - type: "modify_attribute"
+        target: "target"
+        attribute: "current_hp"
+        amount: "-(physical_attack * 1.5)"

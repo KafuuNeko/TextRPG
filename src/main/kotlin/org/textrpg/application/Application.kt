@@ -22,7 +22,10 @@ import org.textrpg.application.data.repository.PlayerRepository
 import org.textrpg.application.data.repositoryModule
 import org.textrpg.application.domain.model.EquipmentSlot
 import org.textrpg.application.domain.model.ItemType
+import org.textrpg.application.game.combat.CombatSessionFactory
+import org.textrpg.application.game.combat.EnemyAI
 import org.textrpg.application.game.command.*
+import org.textrpg.application.game.effect.EffectEngine
 import org.textrpg.application.game.equipment.EquipmentService
 import org.textrpg.application.game.inventory.InventoryService
 import org.textrpg.application.game.inventory.ItemStatsParser
@@ -30,6 +33,8 @@ import org.textrpg.application.game.map.MapManager
 import org.textrpg.application.game.player.ItemSeeder
 import org.textrpg.application.game.player.PlayerContext
 import org.textrpg.application.game.player.PlayerManager
+import org.textrpg.application.game.skill.CooldownManager
+import org.textrpg.application.game.skill.SkillEngine
 import org.textrpg.application.utils.script.KotlinScriptRunner
 
 object Application : KoinComponent {
@@ -80,8 +85,12 @@ object Application : KoinComponent {
         val commandConfig = CommandConfigLoader.load()
         val mapConfig = MapConfigLoader.load()
         val inventoryConfig = InventoryConfigLoader.load()
+        val skillConfig = SkillConfigLoader.load()
+        val buffConfig = BuffConfigLoader.load()
+        val combatConfigResult = CombatConfigLoader.load()
 
         println("已加载 ${attributeDefinitions.size} 个属性，${commandConfig.commands.size} 个指令，${mapConfig.nodes.size} 个地图节点")
+        println("已加载 ${skillConfig.skills.size} 个技能，${buffConfig.buffs.size} 个Buff，${combatConfigResult.enemies.size} 个敌人")
 
         // ========== 播种物品模板 ==========
         val seeded = ItemSeeder.seed(itemRepository)
@@ -95,10 +104,29 @@ object Application : KoinComponent {
         val inventoryService = InventoryService(itemRepository, inventoryConfig)
         val equipmentService = EquipmentService(itemRepository, inventoryService)
 
+        // 战斗子系统
+        val scriptRunner: KotlinScriptRunner = get()
+        val effectEngine = EffectEngine(scriptRunner)
+        val cooldownManager = CooldownManager() // 全局 CD（敌人用）
+        val skillEngine = SkillEngine(effectEngine, cooldownManager)
+        skillEngine.loadSkills(skillConfig)
+        val enemyAI = EnemyAI(scriptRunner)
+        val combatSessionFactory = CombatSessionFactory(
+            combatConfig = combatConfigResult.combatConfig,
+            enemyDefinitions = combatConfigResult.enemies,
+            skillEngine = skillEngine,
+            effectEngine = effectEngine,
+            sessionManager = sessionManager,
+            enemyAI = enemyAI,
+            buffDefinitions = buffConfig.buffs,
+            attributeDefinitions = attributeDefinitions,
+            coroutineScope = gameScope
+        )
+
         val playerManager = PlayerManager(
             playerRepository = playerRepository,
             attributeDefinitions = attributeDefinitions,
-            buffDefinitions = emptyMap(),
+            buffDefinitions = buffConfig.buffs,
             sessionManager = sessionManager,
             mapManager = mapManager,
             inventoryService = inventoryService
@@ -110,7 +138,10 @@ object Application : KoinComponent {
             playerManager = playerManager,
             mapManager = mapManager,
             itemRepository = itemRepository,
-            equipmentService = equipmentService
+            equipmentService = equipmentService,
+            combatSessionFactory = combatSessionFactory,
+            combatConfigResult = combatConfigResult,
+            skillConfig = skillConfig
         )
 
         // ========== OneBot 消息监听 ==========
@@ -165,7 +196,10 @@ object Application : KoinComponent {
         playerManager: PlayerManager,
         mapManager: MapManager,
         itemRepository: ItemRepository,
-        equipmentService: EquipmentService
+        equipmentService: EquipmentService,
+        combatSessionFactory: CombatSessionFactory,
+        combatConfigResult: CombatConfigResult,
+        skillConfig: SkillConfig
     ) {
         // ==================== /注册 ====================
         registry.registerBuiltin("register", CommandHandler { args, context ->
@@ -402,6 +436,82 @@ object Application : KoinComponent {
                 "已卸下 ${slotDisplayName(slot)} 的装备。"
             } else {
                 result.message ?: "卸下失败。"
+            }
+        })
+
+        // ==================== /战斗 ====================
+        registry.registerBuiltin("battle", CommandHandler { args, context ->
+            val ctx = context as PlayerContext
+            val attrs = ctx.attributeContainer
+                ?: return@CommandHandler "属性数据异常。"
+
+            // 检查是否已在战斗中
+            if (ctx.currentSessionType == "combat") {
+                return@CommandHandler "你已经在战斗中了！"
+            }
+
+            // 获取当前节点的敌人列表
+            val locationId = ctx.mapManager.getPlayerLocation(ctx.playerId)
+                ?: return@CommandHandler "位置未初始化。"
+            val node = ctx.mapManager.getNode(locationId)
+                ?: return@CommandHandler "当前节点异常。"
+
+            val availableEnemies = node.entities.enemies
+            if (availableEnemies.isEmpty()) {
+                return@CommandHandler "这里没有可以战斗的敌人。\n提示：前往带有敌人的区域再试试。"
+            }
+
+            // 匹配敌人
+            val enemyId: String
+            if (args.isEmpty()) {
+                if (availableEnemies.size == 1) {
+                    enemyId = availableEnemies.first()
+                } else {
+                    val enemyNames = availableEnemies.mapNotNull { id ->
+                        combatConfigResult.enemies[id]?.displayName?.let { "$it ($id)" }
+                    }
+                    return@CommandHandler "这里有多个敌人，请指定目标：\n${enemyNames.joinToString("\n") { "  $it" }}\n用法：/战斗 <敌人名>"
+                }
+            } else {
+                val input = args.joinToString(" ")
+                enemyId = availableEnemies.find { id ->
+                    id == input || combatConfigResult.enemies[id]?.displayName == input
+                        || combatConfigResult.enemies[id]?.displayName?.contains(input) == true
+                } ?: return@CommandHandler "这里没有「$input」。"
+            }
+
+            // 检查敌人定义是否存在
+            if (combatConfigResult.enemies[enemyId] == null) {
+                return@CommandHandler "敌人数据异常：$enemyId"
+            }
+
+            // 玩家可用技能（全部技能）
+            val playerSkillIds = skillConfig.skills.keys.toList()
+
+            // 创建并启动战斗会话
+            val session = combatSessionFactory.createAndStart(
+                playerId = ctx.playerId,
+                enemyId = enemyId,
+                playerEntity = object : org.textrpg.application.game.buff.BuffAwareEntityAccessor(
+                    attrs, ctx.buffManager ?: org.textrpg.application.game.buff.BuffManager(emptyMap(), attrs)
+                ) {
+                    override val entityId: String = ctx.playerId.toString()
+                    override fun hasItem(itemId: String, quantity: Int) = false
+                    override fun giveItem(itemId: String, quantity: Int) {}
+                    override fun removeItem(itemId: String, quantity: Int) {}
+                    override suspend fun sendMessage(message: String) { ctx.reply(message) }
+                },
+                playerSkillIds = playerSkillIds,
+                playerCooldownManager = ctx.cooldownManager,
+                messageSink = { msg -> ctx.reply(msg) }
+            )
+
+            if (session == null) {
+                "战斗创建失败，敌人不存在。"
+            } else {
+                // 战斗会话已注册，后续消息由 CombatSession 接管
+                // 战斗开始消息由 CombatSession 内部发送
+                null
             }
         })
     }

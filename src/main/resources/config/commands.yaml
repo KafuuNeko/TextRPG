@@ -133,3 +133,15 @@ commands:
     handler: "builtin:unequip"
     requires:
       registered: true
+
+  battle:
+    displayName: "战斗"
+    aliases: ["战斗", "fight", "挑战"]
+    description: "与当前区域的敌人战斗"
+    params:
+      - name: "enemy_name"
+        type: "string"
+        required: false
+    handler: "builtin:battle"
+    requires:
+      registered: true

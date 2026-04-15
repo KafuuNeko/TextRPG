@@ -6,6 +6,7 @@ import org.textrpg.application.game.command.CommandContext
 import org.textrpg.application.game.command.SessionManager
 import org.textrpg.application.game.inventory.InventoryService
 import org.textrpg.application.game.map.MapManager
+import org.textrpg.application.game.skill.CooldownManager
 
 /**
  * 范例层的 CommandContext 实现（胶水层）
@@ -35,6 +36,7 @@ class PlayerContext(
     private val sessionManager: SessionManager,
     val mapManager: MapManager,
     val inventoryService: InventoryService,
+    val cooldownManager: CooldownManager,
     private val replier: suspend (String) -> Unit
 ) : CommandContext {
 

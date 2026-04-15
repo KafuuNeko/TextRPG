@@ -36,4 +36,38 @@
 #   independent - 每次施加独立存在，各自计时
 # ============================================================
 
-buffs: {}
+buffs:
+  burn_dot:
+    displayName: "灼烧"
+    description: "每回合受到火焰伤害"
+    maxStacks: 3
+    duration: 3
+    stackPolicy: "stack"
+    tickEffects:
+      - type: "modify_attribute"
+        target: "self"
+        attribute: "current_hp"
+        amount: "-8 * stacks"
+
+  shield:
+    displayName: "护盾"
+    description: "提高防御力"
+    maxStacks: 1
+    duration: 4
+    stackPolicy: "refresh"
+    modifiers:
+      - attribute: "defense"
+        type: "flat"
+        value: 15
+
+  poison:
+    displayName: "中毒"
+    description: "每回合受到毒素伤害"
+    maxStacks: 5
+    duration: 3
+    stackPolicy: "stack"
+    tickEffects:
+      - type: "modify_attribute"
+        target: "self"
+        attribute: "current_hp"
+        amount: "-5 * stacks"
