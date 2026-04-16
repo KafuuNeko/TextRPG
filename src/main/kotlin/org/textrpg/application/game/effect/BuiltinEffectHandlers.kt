@@ -240,6 +240,9 @@ object BuiltinEffectHandlers {
             return@AtomicEffectHandler EffectResult.failed("run_script: script runner not available")
         }
 
+        if (".." in scriptPath) {
+            return@AtomicEffectHandler EffectResult.failed("run_script: path traversal denied: $scriptPath")
+        }
         val scriptFile = File(scriptPath)
         if (!scriptFile.exists()) {
             return@AtomicEffectHandler EffectResult.failed("run_script: script not found: $scriptPath")

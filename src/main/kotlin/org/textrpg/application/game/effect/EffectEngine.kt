@@ -81,10 +81,12 @@ class EffectEngine(private val scriptRunner: KotlinScriptRunner? = null) {
 
             // 对每个目标执行
             for (target in targets) {
-                try {
-                    val result = handler.execute(effect, target, context)
+                runCatching {
+                    handler.execute(effect, target, context)
+                }.onSuccess { result ->
                     results.add(result)
-                } catch (e: Exception) {
+                }.onFailure { e ->
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     results.add(EffectResult.failed("${effect.type}: exception: ${e.message}"))
                 }
             }
@@ -111,8 +113,12 @@ class EffectEngine(private val scriptRunner: KotlinScriptRunner? = null) {
     ): List<EffectResult> {
         val results = executeEffects(effects, context).toMutableList()
 
-        // 执行后置脚本
+        // 执行后置脚本（拒绝包含 .. 的路径，防止路径遍历）
         if (customScript != null && scriptRunner != null) {
+            if (".." in customScript) {
+                results.add(EffectResult.failed("customScript: path traversal denied: $customScript"))
+                return results
+            }
             val scriptFile = File(customScript)
             if (scriptFile.exists()) {
                 val scriptCode = scriptFile.readText()

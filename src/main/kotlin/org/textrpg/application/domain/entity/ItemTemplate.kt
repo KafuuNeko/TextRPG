@@ -16,7 +16,7 @@ import org.textrpg.application.domain.model.ItemType
  * @property id 模板主键（自增），新建时传 0
  * @property name 物品名称
  * @property type 物品类型，参见 [ItemType]
- * @property subType 物品子类型，仅对装备类型有效，参见 [ItemSubType]
+ * @property subType 物品子类型，仅对装备类型有效（非装备为 null），参见 [ItemSubType]
  * @property rarity 物品品质，参见 [ItemRarity]
  * @property stackable 是否可堆叠。true=消耗品/材料（共享一行背包），false=装备（每件独立一行）
  * @property baseStats 基础属性 JSON，如 `{"atk": 10, "def": 5}`
@@ -28,7 +28,7 @@ data class ItemTemplate(
     val id: Int = 0,
     val name: String,
     val type: ItemType,
-    val subType: ItemSubType = ItemSubType.WEAPON,
+    val subType: ItemSubType? = null,
     val rarity: ItemRarity = ItemRarity.WHITE,
     val stackable: Boolean = true,
     val baseStats: String = "{}",

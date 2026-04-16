@@ -26,13 +26,13 @@ enum class StackPolicy(val value: String) {
  * STACK 策略下，修正器数值按层数缩放（value * stacks）。
  *
  * @property attribute 目标属性 key
- * @property type 修正类型："flat" 或 "percent"
+ * @property type 修正类型，参见 [ModifierType]
  * @property value 单层修正值（STACK 策略下实际值 = value * stacks）
  * @property priority 计算优先级（默认 0）
  */
 data class BuffModifierDefinition(
     val attribute: String,
-    val type: String,
+    val type: ModifierType,
     val value: Double,
     val priority: Int = 0
 )

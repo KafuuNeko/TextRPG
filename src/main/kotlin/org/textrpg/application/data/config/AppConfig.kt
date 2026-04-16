@@ -86,10 +86,11 @@ data class LLMConfig(
  * ```
  */
 object ConfigLoader {
-    private val yaml = Yaml()
 
     /**
      * 从指定路径加载配置
+     *
+     * 每次调用创建新的 [Yaml] 实例——SnakeYAML 的 Yaml 类非线程安全。
      *
      * @param path 配置文件路径（默认 `src/main/resources/config/app.yaml`）
      * @return 解析后的 AppConfig 实例
@@ -101,7 +102,7 @@ object ConfigLoader {
             return AppConfig()
         }
         val content = file.readText()
-        return yaml.loadAs(content, AppConfig::class.java)
+        return Yaml().loadAs(content, AppConfig::class.java)
     }
 
     /**
@@ -114,11 +115,8 @@ object ConfigLoader {
      * @return AppConfig 实例（解析失败时返回默认配置）
      */
     fun loadOrDefault(path: String = "src/main/resources/config/app.yaml"): AppConfig {
-        return try {
-            load(path)
-        } catch (e: Exception) {
-            log.warn(e) { "Failed to load config from $path, using defaults" }
-            AppConfig()
-        }
+        return runCatching { load(path) }
+            .onFailure { log.warn(it) { "Failed to load config from $path, using defaults" } }
+            .getOrDefault(AppConfig())
     }
 }

@@ -3,6 +3,7 @@ package org.textrpg.application.game.npc
 import org.textrpg.application.data.config.NpcConfig
 import org.textrpg.application.domain.model.NpcDefinition
 import org.textrpg.application.domain.model.NpcFunction
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * NPC 管理器
@@ -14,8 +15,8 @@ import org.textrpg.application.domain.model.NpcFunction
  */
 class NpcManager(npcConfig: NpcConfig) {
 
-    /** NPC 定义注册表（支持动态添加） */
-    private val npcs: MutableMap<String, NpcDefinition> = npcConfig.npcs.toMutableMap()
+    /** NPC 定义注册表（支持动态添加，ConcurrentHashMap 保证 AI 线程并发安全） */
+    private val npcs: MutableMap<String, NpcDefinition> = ConcurrentHashMap(npcConfig.npcs)
 
     /**
      * 获取 NPC 定义

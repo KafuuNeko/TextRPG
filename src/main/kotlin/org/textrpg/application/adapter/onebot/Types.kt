@@ -237,16 +237,6 @@ data class OneBotConfig(
 value class ListenerId(val id: Long)
 
 /**
- * 事件监听器
- */
-interface EventListener {
-    fun onMessage(event: MessageEvent) {}
-    fun onConnect() {}
-    fun onDisconnect() {}
-    fun onError(e: Throwable) {}
-}
-
-/**
  * 消息类型
  */
 object Message {

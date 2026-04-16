@@ -37,8 +37,8 @@ data class MoveResult(
  */
 class MapManager(mapConfig: MapConfig) {
 
-    /** 节点注册表（支持动态添加） */
-    private val nodes: MutableMap<String, MapNodeDefinition> = mapConfig.nodes.toMutableMap()
+    /** 节点注册表（支持动态添加，ConcurrentHashMap 保证 AI 工具线程与游戏线程并发安全） */
+    private val nodes: MutableMap<String, MapNodeDefinition> = ConcurrentHashMap(mapConfig.nodes)
 
     /** 玩家位置映射（playerId → nodeId） */
     private val playerLocations = ConcurrentHashMap<Long, String>()
@@ -154,6 +154,19 @@ class MapManager(mapConfig: MapConfig) {
      */
     fun addNode(node: MapNodeDefinition) {
         nodes[node.key] = node
+    }
+
+    /**
+     * 动态为已有节点追加一条出方向连接
+     *
+     * 若节点不存在则静默忽略（AI 工具生成的连接目标可能尚未创建）。
+     *
+     * @param nodeKey 源节点 key
+     * @param connection 要追加的连接
+     */
+    fun addConnection(nodeKey: String, connection: NodeConnection) {
+        val existing = nodes[nodeKey] ?: return
+        nodes[nodeKey] = existing.copy(connections = existing.connections + connection)
     }
 
     /**

@@ -67,7 +67,7 @@ class ItemRepository(private val database: Database) :
             ItemTemplateEntity.new {
                 name = template.name
                 type = template.type.value
-                subType = template.subType.value
+                subType = template.subType?.value ?: 0
                 rarity = template.rarity.value
                 stackable = template.stackable
                 baseStats = template.baseStats
@@ -81,7 +81,7 @@ class ItemRepository(private val database: Database) :
             existing.apply {
                 name = template.name
                 type = template.type.value
-                subType = template.subType.value
+                subType = template.subType?.value ?: 0
                 rarity = template.rarity.value
                 stackable = template.stackable
                 baseStats = template.baseStats
@@ -340,7 +340,7 @@ class ItemRepository(private val database: Database) :
         id = id.value,
         name = name,
         type = ItemType.fromValue(type),
-        subType = ItemSubType.fromValue(subType),
+        subType = if (subType != 0) ItemSubType.fromValue(subType) else null,
         rarity = ItemRarity.fromValue(rarity),
         stackable = stackable,
         baseStats = baseStats,

@@ -110,6 +110,11 @@ object BuiltinAITools {
                         connections = connections
                     )
                     mapManager.addNode(node)
+
+                    // 建立反向连接使其双向可达（与参数描述 "bidirectional" 一致）
+                    if (connectTo != null) {
+                        mapManager.addConnection(connectTo, NodeConnection(target = key, display = "→ 前往$displayName"))
+                    }
                     "Node created: $key ($displayName)"
                 }
             ))

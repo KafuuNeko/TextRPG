@@ -63,7 +63,7 @@ class CooldownManager {
      */
     fun recordCooldown(entityId: String, skillId: String, rounds: Int) {
         if (rounds <= 0) return
-        cooldowns.getOrPut(entityId) { ConcurrentHashMap() }[skillId] = rounds
+        cooldowns.computeIfAbsent(entityId) { ConcurrentHashMap() }[skillId] = rounds
     }
 
     /**
@@ -81,12 +81,10 @@ class CooldownManager {
 
         // 快照 key 列表，迭代期间外部修改不影响本次 tick
         for (skillId in entityCooldowns.keys.toList()) {
-            val current = entityCooldowns[skillId] ?: continue
-            val newValue = current - 1
-            if (newValue <= 0) {
-                entityCooldowns.remove(skillId)
-            } else {
-                entityCooldowns[skillId] = newValue
+            entityCooldowns.compute(skillId) { _, current ->
+                if (current == null) null
+                else if (current <= 1) null   // 降至 0 则移除
+                else current - 1
             }
         }
 

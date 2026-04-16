@@ -10,6 +10,9 @@ import org.textrpg.application.domain.model.TriggerType
 
 private val log = KotlinLogging.logger {}
 
+/** Gson 线程安全，全局共享以避免每次序列化/反序列化时重建 */
+private val sharedGson = Gson()
+
 /**
  * 属性容器
  *
@@ -234,7 +237,7 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
      */
     fun serializeBaseValues(): String {
         val data = instances.entries.associate { (key, instance) -> key to instance.getBaseValue() }
-        return Gson().toJson(data)
+        return sharedGson.toJson(data)
     }
 
     /**
@@ -250,7 +253,7 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
         if (json.isBlank() || json == "{}") return
         runCatching {
             val type = object : TypeToken<Map<String, Double>>() {}.type
-            val data: Map<String, Double> = Gson().fromJson(json, type)
+            val data: Map<String, Double> = sharedGson.fromJson(json, type)
             for ((key, value) in data) {
                 instances[key]?.setBaseValue(value)
             }

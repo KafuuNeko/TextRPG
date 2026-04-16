@@ -3,13 +3,11 @@ package org.textrpg.application
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.context.startKoin
@@ -43,9 +41,6 @@ object Application : KoinComponent {
     private val appModule = module {
         single<HttpClient> {
             HttpClient(CIO) {
-                install(ContentNegotiation) {
-                    Json { ignoreUnknownKeys = true; isLenient = true }
-                }
                 install(WebSockets)
                 install(HttpTimeout) {
                     requestTimeoutMillis = 30_000

@@ -53,6 +53,9 @@ class CommandRouter(
     private val handlerRegistry: CommandHandlerRegistry,
     private val sessionManager: SessionManager
 ) {
+    companion object {
+        private val WHITESPACE_REGEX = "\\s+".toRegex()
+    }
     /**
      * 指令查找索引：合并 key 和 aliases，映射到 CommandDefinition
      *
@@ -91,7 +94,7 @@ class CommandRouter(
         // 3. 解析指令名和参数
         val content = message.removePrefix(config.commandPrefix)
         if (content.isBlank()) return CommandResult.NotCommand
-        val parts = content.split("\\s+".toRegex())
+        val parts = content.split(WHITESPACE_REGEX)
         val commandName = parts[0]
         val args = parts.drop(1)
 

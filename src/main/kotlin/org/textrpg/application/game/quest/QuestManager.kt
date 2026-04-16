@@ -78,7 +78,7 @@ class QuestManager(
         }.toMutableList()
 
         val progress = QuestProgress(questId = questId, objectives = objectives)
-        playerQuests.getOrPut(playerId) { mutableListOf() }.add(progress)
+        playerQuests.computeIfAbsent(playerId) { mutableListOf() }.add(progress)
 
         return QuestResult.success("接取任务：${definition.displayName}")
     }

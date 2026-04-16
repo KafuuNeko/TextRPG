@@ -1,8 +1,12 @@
 package org.textrpg.application.data.config
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.textrpg.application.domain.model.BuffDefinition
 import org.textrpg.application.domain.model.BuffModifierDefinition
+import org.textrpg.application.domain.model.ModifierType
 import org.textrpg.application.domain.model.StackPolicy
+
+private val log = KotlinLogging.logger {}
 
 /**
  * Buff 配置加载结果
@@ -82,7 +86,11 @@ object BuffConfigLoader : AbstractYamlLoader<BuffConfig>() {
         return list.mapNotNull { item ->
             val props = item as? Map<String, Any> ?: return@mapNotNull null
             val attribute = props["attribute"] as? String ?: return@mapNotNull null
-            val type = props["type"] as? String ?: return@mapNotNull null
+            val typeStr = props["type"] as? String ?: return@mapNotNull null
+            val type = runCatching { ModifierType.fromValue(typeStr) }.getOrElse {
+                log.warn { "Buff modifier: unknown type '$typeStr' (expected 'flat' or 'percent'), skipping" }
+                return@mapNotNull null
+            }
             val value = RequiresParser.toDouble(props["value"]) ?: return@mapNotNull null
             BuffModifierDefinition(
                 attribute = attribute,

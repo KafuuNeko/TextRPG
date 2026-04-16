@@ -30,8 +30,8 @@ private val log = KotlinLogging.logger {}
  */
 abstract class AbstractYamlLoader<T> {
 
-    /** 共用的 SnakeYAML 实例（线程安全用法：每次 load 调用新建 Yaml 也可，但共享足够） */
-    protected val yaml: Yaml = Yaml()
+    /** 每次 load 调用创建新的 Yaml 实例——SnakeYAML 的 Yaml 类非线程安全 */
+    protected fun newYaml(): Yaml = Yaml()
 
     /** 配置文件默认路径（子类约定） */
     protected abstract val defaultPath: String
@@ -63,7 +63,7 @@ abstract class AbstractYamlLoader<T> {
         }
         return runCatching {
             @Suppress("UNCHECKED_CAST")
-            val raw = yaml.load<Map<String, Any>>(file.readText()) ?: return@runCatching default
+            val raw = newYaml().load<Map<String, Any>>(file.readText()) ?: return@runCatching default
             parse(raw)
         }.getOrElse { e ->
             log.warn(e) { "Failed to load $configName config from $path" }

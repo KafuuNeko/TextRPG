@@ -12,16 +12,6 @@ import java.util.concurrent.atomic.AtomicLong
 private val log = KotlinLogging.logger {}
 
 /**
- * WebSocket 事件回调
- */
-interface WebSocketEventCallback {
-    fun onMessage(event: MessageEvent)
-    fun onConnect()
-    fun onDisconnect()
-    fun onError(e: Throwable)
-}
-
-/**
  * WebSocket 事件客户端
  *
  * 通过 WebSocket 接收 OneBot 事件推送
@@ -33,12 +23,16 @@ class WebSocketClient(
     private val config: OneBotConfig,
     private val httpClient: HttpClient
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var scopeJob = SupervisorJob()
+    private var scope = CoroutineScope(Dispatchers.IO + scopeJob)
     private var session: DefaultClientWebSocketSession? = null
     private val pendingRequests = ConcurrentHashMap<String, CompletableDeferred<JsonObject>>()
+    private val echoCounter = AtomicLong(1)
     private val listenerIdCounter = AtomicLong(1)
     private val listeners = ConcurrentHashMap<ListenerId, (MessageEvent) -> Unit>()
+    @Volatile
     private var isConnecting = false
+    @Volatile
     private var shouldReconnect = true
 
     /**
@@ -91,11 +85,14 @@ class WebSocketClient(
      */
     fun disconnect() {
         shouldReconnect = false
-        scope.cancel()
+        scopeJob.cancel()                // 仅取消子 Job，不毁掉 scope 本身
         session?.cancel()
         session = null
         isConnected = false
         isConnecting = false
+        // 重建 scope 以便后续可能的 reconnect
+        scopeJob = SupervisorJob()
+        scope = CoroutineScope(Dispatchers.IO + scopeJob)
     }
 
     /**
@@ -201,8 +198,13 @@ class WebSocketClient(
      */
     private fun parseMessageSegment(obj: JsonObject): MessageSegment? {
         val typeStr = obj["type"]?.jsonPrimitive?.contentOrNull ?: return null
-        val data = obj["data"]?.jsonObject ?: emptyMap()
-        val dataMap = data.entries.associate { it.key to (it.value.jsonPrimitive.contentOrNull ?: "") }
+        val data = obj["data"]?.jsonObject ?: return MessageSegment(MessageSegmentType.CUSTOM, emptyMap())
+        val dataMap = data.entries.associate { (key, value) ->
+            key to when (value) {
+                is JsonPrimitive -> value.contentOrNull ?: ""
+                else -> value.toString()   // 嵌套对象/数组退化为 JSON 字符串
+            }
+        }
 
         val type = runCatching { MessageSegmentType.valueOf(typeStr.uppercase()) }
             .getOrDefault(MessageSegmentType.CUSTOM)
@@ -214,7 +216,7 @@ class WebSocketClient(
      * 发送 WebSocket 请求
      */
     suspend fun sendRequest(action: String, params: JsonObject): JsonObject? {
-        val echo = System.currentTimeMillis().toString() + "_" + (0..9999).random()
+        val echo = echoCounter.getAndIncrement().toString()
         val deferred = CompletableDeferred<JsonObject>()
         pendingRequests[echo] = deferred
 

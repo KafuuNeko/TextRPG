@@ -348,7 +348,7 @@ class CombatSession(
     // ======================== 回合结束 ========================
 
     private suspend fun roundEndPhase() {
-        // Buff tick
+        // Buff tick（source = target = buff 拥有者：tick 效果对自己生效，如中毒扣自己血、回血加自己血）
         val playerCtx = buildCombatContext(playerEntity, playerEntity)
         playerEntity.buffs.tick(playerCtx, effectEngine)
 

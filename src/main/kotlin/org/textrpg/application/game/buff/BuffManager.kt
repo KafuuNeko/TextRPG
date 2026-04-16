@@ -248,7 +248,7 @@ class BuffManager(
             val scaledValue = modDef.value * instance.stacks
             val modifier = Modifier(
                 source = instance.modifierSource,
-                type = ModifierType.fromValue(modDef.type),
+                type = modDef.type,
                 value = scaledValue,
                 priority = modDef.priority
             )

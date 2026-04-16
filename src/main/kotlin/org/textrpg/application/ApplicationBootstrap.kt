@@ -84,6 +84,6 @@ open class ApplicationBootstrap(
         }
 
         runCatching { adapter.connect() }
-            .onFailure { log.error { "Connection failed: ${it.localizedMessage}" } }
+            .onFailure { log.error(it) { "Connection failed" } }
     }
 }
