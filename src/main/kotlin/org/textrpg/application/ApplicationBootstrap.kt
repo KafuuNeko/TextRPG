@@ -1,12 +1,11 @@
 package org.textrpg.application
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import io.github.oshai.kotlinlogging.KLogger
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.textrpg.application.adapter.onebot.OneBotAdapter
 import org.textrpg.application.game.command.CommandHandlerRegistry
 import org.textrpg.application.game.command.NamedCommandHandler
-
-private val log = KotlinLogging.logger {}
 
 /**
  * 应用启动编排骨架
@@ -29,6 +28,7 @@ open class ApplicationBootstrap(
     protected val adapter: OneBotAdapter,
     protected val registry: CommandHandlerRegistry
 ) : KoinComponent {
+    private val log by lazy { get<KLogger>() }
 
     /**
      * 主启动入口：按序执行三个钩子。

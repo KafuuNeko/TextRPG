@@ -214,22 +214,6 @@ data class MessageSender(
     val groupId: Long = 0,
     val card: String = ""
 )
-
-/**
- * OneBot 配置
- *
- * @property websocketUrl WebSocket 连接地址
- * @property httpUrl HTTP API 地址
- * @property accessToken 访问令牌（可选）
- * @property reconnectInterval 重连间隔（毫秒）
- */
-data class OneBotConfig(
-    val websocketUrl: String = "ws://127.0.0.1:8080",
-    val httpUrl: String = "http://127.0.0.1:8080",
-    val accessToken: String? = null,
-    val reconnectInterval: Long = 5000L
-)
-
 /**
  * 监听器 ID，用于取消注册
  */

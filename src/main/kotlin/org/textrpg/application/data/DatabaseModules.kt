@@ -10,7 +10,7 @@ import org.textrpg.application.data.repository.PlayerRepository
 
 val databaseModule = module {
     single {
-        DatabaseFactory(get<AppConfig>().database).also { it.init() }
+        DatabaseFactory(get<AppConfig>().database, get()).also { it.init() }
     }
     single { get<DatabaseFactory>().database }
 }

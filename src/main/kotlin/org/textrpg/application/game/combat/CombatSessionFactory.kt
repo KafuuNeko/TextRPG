@@ -1,5 +1,6 @@
 package org.textrpg.application.game.combat
 
+import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import org.textrpg.application.domain.model.AttributeDefinition
@@ -13,8 +14,6 @@ import org.textrpg.application.game.effect.EffectEngine
 import org.textrpg.application.game.effect.EntityAccessor
 import org.textrpg.application.game.skill.CooldownManager
 import org.textrpg.application.game.skill.SkillEngine
-
-private val log = KotlinLogging.logger {}
 
 /**
  * 战斗会话工厂
@@ -38,6 +37,7 @@ private val log = KotlinLogging.logger {}
  * @param buffDefinitions Buff 定义映射（用于创建敌人的 BuffManager）
  * @param attributeDefinitions 属性定义映射（用于创建敌人的 AttributeContainer）
  * @param coroutineScope 协程作用域
+ * @param logger 日志记录器（可选，默认创建独立实例）
  */
 class CombatSessionFactory(
     private val combatConfig: CombatConfig,
@@ -48,9 +48,9 @@ class CombatSessionFactory(
     private val enemyAI: EnemyAI,
     private val buffDefinitions: Map<String, BuffDefinition>,
     private val attributeDefinitions: Map<String, AttributeDefinition>,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val logger: KLogger
 ) {
-
     /**
      * 创建并启动一场战斗
      *
@@ -72,13 +72,14 @@ class CombatSessionFactory(
     ): CombatSession? {
         val enemyDef = enemyDefinitions[enemyId]
         if (enemyDef == null) {
-            log.warn { "Enemy definition not found: $enemyId" }
+            logger.warn { "Enemy definition not found: $enemyId" }
             return null
         }
 
         // 创建敌人实体
         val enemy = CombatEntity.fromEnemyDefinition(
             def = enemyDef,
+            logger = logger,
             attributeDefinitions = attributeDefinitions,
             buffDefinitions = buffDefinitions
         )
@@ -95,7 +96,8 @@ class CombatSessionFactory(
             buffManager = playerBuffMgr,
             skillIds = playerSkillIds,
             cooldownManager = playerCooldownManager,
-            messageSink = messageSink
+            messageSink = messageSink,
+            logger = logger
         )
 
         // 创建战斗会话
@@ -109,7 +111,8 @@ class CombatSessionFactory(
             effectEngine = effectEngine,
             enemyAI = enemyAI,
             sessionManager = sessionManager,
-            coroutineScope = coroutineScope
+            coroutineScope = coroutineScope,
+            logger = logger
         )
 
         // 注册会话并启动
@@ -177,7 +180,7 @@ class CombatSessionFactory(
             attrContainer.setBaseValue(key, playerEntity.getAttributeValue(key))
         }
 
-        val buffMgr = org.textrpg.application.game.buff.BuffManager(buffDefinitions, attrContainer)
+        val buffMgr = org.textrpg.application.game.buff.BuffManager(buffDefinitions, attrContainer, null, logger)
         return Pair(attrContainer, buffMgr)
     }
 }

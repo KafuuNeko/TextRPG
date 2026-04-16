@@ -1,5 +1,6 @@
 package org.textrpg.application.game.combat
 
+import io.github.oshai.kotlinlogging.KLogger
 import org.textrpg.application.domain.model.*
 import org.textrpg.application.game.attribute.AttributeContainer
 import org.textrpg.application.game.buff.BuffAwareEntityAccessor
@@ -35,6 +36,7 @@ class CombatEntity(
     buffManager: BuffManager,
     val skillIds: List<String>,
     val cooldownManager: CooldownManager,
+    private val logger: KLogger,
     private val messageSink: suspend (String) -> Unit = {}
 ) : BuffAwareEntityAccessor(attributeContainer, buffManager) {
 
@@ -81,6 +83,7 @@ class CombatEntity(
          */
         fun fromEnemyDefinition(
             def: EnemyDefinition,
+            logger: KLogger,
             attributeDefinitions: Map<String, AttributeDefinition>,
             buffDefinitions: Map<String, BuffDefinition> = emptyMap()
         ): CombatEntity {
@@ -92,7 +95,7 @@ class CombatEntity(
                 }
             }
 
-            val buffMgr = BuffManager(buffDefinitions, attrContainer)
+            val buffMgr = BuffManager(buffDefinitions, attrContainer, null, logger)
             val cdManager = CooldownManager()
 
             return CombatEntity(
@@ -102,7 +105,8 @@ class CombatEntity(
                 attributeContainer = attrContainer,
                 buffManager = buffMgr,
                 skillIds = def.skills,
-                cooldownManager = cdManager
+                cooldownManager = cdManager,
+                logger = logger
             )
         }
     }

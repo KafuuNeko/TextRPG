@@ -1,12 +1,11 @@
 package org.textrpg.application.game.combat
 
+import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.textrpg.application.domain.model.EnemyDefinition
 import org.textrpg.application.game.attribute.FormulaEngine
 import org.textrpg.application.utils.script.KotlinScriptRunner
 import java.io.File
-
-private val log = KotlinLogging.logger {}
 
 /**
  * AI 行动类型
@@ -57,10 +56,13 @@ data class CombatState(
  * 特殊值 `"true"` 和 `"1"` 始终满足，可作为默认行为的条件。
  *
  * @param scriptRunner Kotlin 脚本执行器（可选，脚本模式需要）
+ * @param logger 日志记录器（可选，默认创建独立实例）
  */
 class EnemyAI(
-    private val scriptRunner: KotlinScriptRunner? = null
+    private val scriptRunner: KotlinScriptRunner? = null,
+    private val logger: KLogger? = null
 ) {
+    private val log = logger ?: KotlinLogging.logger {}
 
     /**
      * 做出 AI 决策

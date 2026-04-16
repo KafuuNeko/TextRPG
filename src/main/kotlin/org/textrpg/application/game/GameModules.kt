@@ -83,7 +83,8 @@ val gameModule = module {
             enemyAI = get(),
             buffDefinitions = get<Map<String, BuffDefinition>>(ConfigQualifiers.BuffDefinitions),
             attributeDefinitions = get<Map<String, AttributeDefinition>>(ConfigQualifiers.AttributeDefinitions),
-            coroutineScope = get<CoroutineScope>()
+            coroutineScope = get<CoroutineScope>(),
+            logger = get()
         )
     }
 }

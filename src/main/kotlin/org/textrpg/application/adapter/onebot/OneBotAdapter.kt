@@ -1,6 +1,8 @@
 package org.textrpg.application.adapter.onebot
 
+import io.github.oshai.kotlinlogging.KLogger
 import io.ktor.client.*
+import org.textrpg.application.data.config.AppConfig
 
 /**
  * OneBot 适配器
@@ -26,13 +28,13 @@ import io.ktor.client.*
  * ```
  */
 class OneBotAdapter(
-    val config: OneBotConfig,
-    private val httpClient: HttpClient? = null
+    val config: AppConfig,
+    private val httpClient: HttpClient? = null,
+    logger: KLogger
 ) {
     private val client = httpClient ?: HttpClient()
-
-    private val wsClient: WebSocketClient = WebSocketClient(config, client)
-    private val httpApiClient: HttpApiClient = HttpApiClient(config, client)
+    private val wsClient: WebSocketClient = WebSocketClient(config.bot, client, logger)
+    private val httpApiClient: HttpApiClient = HttpApiClient(config.bot, client)
 
     /**
      * 是否已连接

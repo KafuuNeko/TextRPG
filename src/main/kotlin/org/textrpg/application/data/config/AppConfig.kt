@@ -40,13 +40,15 @@ data class DatabaseConfig(
  * @property enabled 是否启用 OneBot 连接
  * @property websocketUrl OneBot WebSocket 服务器地址
  * @property accessToken 访问令牌（可选）
+ * @property reconnectInterval 重连间隔
  */
 @Serializable
 data class OneBotConfig(
     var enabled: Boolean = true,
     var websocketUrl: String = "ws://127.0.0.1:8080",
     var httpUrl: String = "http://127.0.0.1:8080",
-    var accessToken: String = ""
+    var accessToken: String = "",
+    var reconnectInterval: Long = 5000,
 )
 
 /**

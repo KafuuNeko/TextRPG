@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.textrpg.application.data.config.OneBotConfig
 
 /**
  * HTTP API 响应
@@ -205,7 +206,7 @@ class HttpApiClient(
 
             val response = client.post("${config.httpUrl}/api") {
                 contentType(ContentType.Application.Json)
-                config.accessToken?.takeIf { it.isNotBlank() }?.let {
+                config.accessToken.takeIf { it.isNotBlank() }?.let {
                     header("Authorization", "Bearer $it")
                 }
                 setBody(requestBody.toString())

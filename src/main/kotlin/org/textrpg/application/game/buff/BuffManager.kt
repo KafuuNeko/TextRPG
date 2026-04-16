@@ -1,14 +1,12 @@
 package org.textrpg.application.game.buff
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import io.github.oshai.kotlinlogging.KLogger
 import org.textrpg.application.domain.model.*
 import org.textrpg.application.game.attribute.AttributeContainer
 import org.textrpg.application.game.effect.EffectContext
 import org.textrpg.application.game.effect.EffectEngine
 import org.textrpg.application.utils.script.KotlinScriptRunner
 import java.io.File
-
-private val log = KotlinLogging.logger {}
 
 /**
  * Buff 管理器（per-entity）
@@ -30,13 +28,14 @@ private val log = KotlinLogging.logger {}
  * @param buffDefinitions Buff 定义映射（从 [BuffConfigLoader] 加载）
  * @param attributeContainer 所属实体的属性容器（修正器挂载目标）
  * @param scriptRunner Kotlin 脚本执行器（可选，用于 onApply/onRemove/onStack 钩子）
+ * @param logger 日志记录器（可选，默认创建独立实例）
  */
 class BuffManager(
     private val buffDefinitions: Map<String, BuffDefinition>,
     private val attributeContainer: AttributeContainer,
-    private val scriptRunner: KotlinScriptRunner? = null
+    private val scriptRunner: KotlinScriptRunner? = null,
+    private val logger: KLogger
 ) {
-
     /** 活跃的 Buff 实例列表 */
     private val activeBuffs: MutableList<BuffInstance> = mutableListOf()
 
@@ -83,7 +82,7 @@ class BuffManager(
     fun applyBuff(buffId: String, stacks: Int = 1, durationOverride: Int? = null) {
         val definition = buffDefinitions[buffId]
         if (definition == null) {
-            log.warn { "Buff definition not found: $buffId" }
+            logger.warn { "Buff definition not found: $buffId" }
             return
         }
 
@@ -277,7 +276,7 @@ class BuffManager(
 
         val file = File(scriptPath)
         if (!file.exists()) {
-            log.warn { "Buff hook script not found: $scriptPath" }
+            logger.warn { "Buff hook script not found: $scriptPath" }
             return
         }
 
@@ -289,7 +288,7 @@ class BuffManager(
 
         val result = scriptRunner.executeScript(file.readText(), context)
         if (!result.success) {
-            log.warn { "Buff hook script failed ($scriptPath): ${result.message}" }
+            logger.warn { "Buff hook script failed ($scriptPath): ${result.message}" }
         }
     }
 }

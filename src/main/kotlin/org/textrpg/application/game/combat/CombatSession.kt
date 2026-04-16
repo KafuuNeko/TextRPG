@@ -1,5 +1,6 @@
 package org.textrpg.application.game.combat
 
+import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
 import org.textrpg.application.domain.model.CombatConfig
@@ -10,8 +11,6 @@ import org.textrpg.application.game.command.SessionManager
 import org.textrpg.application.game.effect.EffectEngine
 import org.textrpg.application.game.skill.SkillEngine
 import kotlin.random.Random
-
-private val log = KotlinLogging.logger {}
 
 /**
  * 战斗结局
@@ -53,6 +52,7 @@ enum class CombatOutcome {
  * @param enemyAI AI 决策引擎
  * @param sessionManager 会话管理器（战斗结束时注销）
  * @param coroutineScope 协程作用域
+ * @param logger 日志记录器（可选，默认创建独立实例）
  */
 class CombatSession(
     override val playerId: Long,
@@ -64,9 +64,9 @@ class CombatSession(
     private val effectEngine: EffectEngine,
     private val enemyAI: EnemyAI,
     private val sessionManager: SessionManager,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val logger: KLogger
 ) : Session {
-
     override val type: String = "combat"
 
     private var active = true
@@ -422,7 +422,7 @@ class CombatSession(
                     playerEntity.modifyAttribute(combatConfig.attributeKeys.exp, exp)
                     playerEntity.sendMessage("获得 ${exp.toInt()} 经验值")
                 },
-                onFailure = { log.warn(it) { "Exp formula evaluation failed" } }
+                onFailure = { logger.warn(it) { "Exp formula evaluation failed" } }
             )
         }
 

@@ -1,15 +1,14 @@
 package org.textrpg.application.adapter.onebot
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import io.github.oshai.kotlinlogging.KLogger
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.*
+import org.textrpg.application.data.config.OneBotConfig
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
-
-private val log = KotlinLogging.logger {}
 
 /**
  * WebSocket 事件客户端
@@ -18,10 +17,12 @@ private val log = KotlinLogging.logger {}
  *
  * @property config OneBot 配置
  * @property httpClient Ktor HTTP 客户端
+ * @property logger 日志记录器
  */
 class WebSocketClient(
     private val config: OneBotConfig,
-    private val httpClient: HttpClient
+    private val httpClient: HttpClient,
+    private val logger: KLogger
 ) {
     private var scopeJob = SupervisorJob()
     private var scope = CoroutineScope(Dispatchers.IO + scopeJob)
@@ -55,7 +56,7 @@ class WebSocketClient(
                 session = this
                 isConnected = true
                 isConnecting = false
-                log.info { "WebSocket connected to ${config.websocketUrl}" }
+                logger.info { "WebSocket connected to ${config.websocketUrl}" }
 
                 for (frame in incoming) {
                     when (frame) {
@@ -131,7 +132,7 @@ class WebSocketClient(
                 ".respond" -> handleApiResponse(json)
             }
         }.onFailure { e ->
-            log.warn(e) { "Error handling WebSocket message" }
+            logger.warn(e) { "Error handling WebSocket message" }
         }
     }
 
@@ -157,7 +158,7 @@ class WebSocketClient(
         // 异常隔离：单个 listener 抛错不应阻断后续 listener 或 WebSocket 收消息循环
         listeners.values.forEach { listener ->
             runCatching { listener.invoke(event) }
-                .onFailure { log.warn(it) { "Message listener threw" } }
+                .onFailure { logger.warn(it) { "Message listener threw" } }
         }
     }
 

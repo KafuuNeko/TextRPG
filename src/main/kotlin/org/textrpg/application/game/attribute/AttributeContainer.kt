@@ -2,13 +2,14 @@ package org.textrpg.application.game.attribute
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import org.textrpg.application.domain.model.AttributeDefinition
 import org.textrpg.application.domain.model.AttributeTier
 import org.textrpg.application.domain.model.Modifier
 import org.textrpg.application.domain.model.TriggerType
-
-private val log = KotlinLogging.logger {}
 
 /** Gson 线程安全，全局共享以避免每次序列化/反序列化时重建 */
 private val sharedGson = Gson()
@@ -27,8 +28,12 @@ private val sharedGson = Gson()
  * 4. 对比新旧值，检查触发条件，分发触发事件
  *
  * @param definitions 属性定义映射，来自 YAML 配置加载
+ * @param logger 日志记录器（可选，默认创建独立实例）
  */
-class AttributeContainer(private val definitions: Map<String, AttributeDefinition>) {
+class AttributeContainer(
+    private val definitions: Map<String, AttributeDefinition>,
+): KoinComponent {
+    private val logger: KLogger by inject<KLogger>()
 
     /** 属性实例映射，保持插入顺序（便于调试和遍历） */
     private val instances: LinkedHashMap<String, AttributeInstance> = LinkedHashMap()
@@ -259,7 +264,7 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
             }
             recalculateAllDerived()
         }.onFailure { e ->
-            log.warn(e) { "Failed to deserialize attribute data" }
+            logger.warn(e) { "Failed to deserialize attribute data" }
         }
     }
 
@@ -406,7 +411,7 @@ class AttributeContainer(private val definitions: Map<String, AttributeDefinitio
 
         if (sorted.size < derivedKeys.size) {
             val cyclic = derivedKeys - sorted.toSet()
-            log.warn { "Circular dependency detected in derived attributes: $cyclic. These attributes will not be auto-calculated." }
+            logger.warn { "Circular dependency detected in derived attributes: $cyclic. These attributes will not be auto-calculated." }
         }
 
         return sorted

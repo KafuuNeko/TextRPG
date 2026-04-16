@@ -1,5 +1,7 @@
 package org.textrpg.application
 
+import io.github.oshai.kotlinlogging.KLogger
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -16,7 +18,6 @@ import org.koin.dsl.module
 import org.textrpg.application.adapter.llm.LLMClient
 import org.textrpg.application.adapter.llm.OpenAIClient
 import org.textrpg.application.adapter.onebot.OneBotAdapter
-import org.textrpg.application.adapter.onebot.OneBotConfig as OneBotAdapterConfig
 import org.textrpg.application.data.config.AppConfig
 import org.textrpg.application.data.config.ConfigLoader
 import org.textrpg.application.data.configModule
@@ -39,6 +40,8 @@ import org.textrpg.application.utils.script.KotlinScriptRunner
  */
 object Application : KoinComponent {
     private val appModule = module {
+        single<KLogger> { KotlinLogging.logger {} }
+
         single<HttpClient> {
             HttpClient(CIO) {
                 install(WebSockets)
@@ -48,22 +51,18 @@ object Application : KoinComponent {
                 }
             }
         }
+
         single<AppConfig> { ConfigLoader.loadOrDefault() }
+
         singleOf(::KotlinScriptRunner)
-        single<OneBotAdapter> {
-            val appConfig: AppConfig = get()
-            OneBotAdapter(
-                config = OneBotAdapterConfig(
-                    websocketUrl = appConfig.bot.websocketUrl,
-                    httpUrl = appConfig.bot.httpUrl,
-                    accessToken = appConfig.bot.accessToken.takeIf { it.isNotBlank() }
-                ),
-                httpClient = get()
-            )
-        }
+
+        singleOf(::OneBotAdapter)
+
         single<LLMClient> { OpenAIClient(get(), get()) }
+
         // 游戏协程作用域：承载战斗会话、AI 异步决策等挂起任务
         single<CoroutineScope> { CoroutineScope(Dispatchers.Default + SupervisorJob()) }
+
         // 启动编排器：范例层可通过 override = true 替换为定制子类
         singleOf(::ApplicationBootstrap)
     }
