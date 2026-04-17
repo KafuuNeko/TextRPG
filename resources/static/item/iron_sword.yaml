@@ -1,11 +1,11 @@
 name: "铁剑"
-type: EQUIPMENT
-subType: WEAPON
-rarity: GREEN
 stackable: false
-baseStats:
+attribute:
+  type: equipment
+  subType: weapon
+  rarity: green
   atk: 15
   def: 2
-levelReq: 5
-price: 200
+  levelReq: 5
+  price: 200
 description: "一把普通的铁剑，锋利度尚可。"

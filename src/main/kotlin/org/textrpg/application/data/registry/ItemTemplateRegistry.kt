@@ -1,10 +1,7 @@
 package org.textrpg.application.data.registry
 
 import com.google.gson.Gson
-import org.textrpg.application.domain.model.ItemRarity
-import org.textrpg.application.domain.model.ItemSubType
 import org.textrpg.application.domain.model.ItemTemplate
-import org.textrpg.application.domain.model.ItemType
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 
@@ -33,8 +30,6 @@ class ItemTemplateRegistry(
             return size > MAX_CACHE_SIZE
         }
     }
-
-
 
     /**
      * 根据 ID 查询物品模板（懒加载）
@@ -130,24 +125,19 @@ class ItemTemplateRegistry(
         val data = mYaml.load<Map<String, Any>>(file.readText())
             ?: throw IllegalArgumentException("Empty YAML file")
 
-        val baseStats = data["baseStats"]
-        val baseStatsJson = when (baseStats) {
-            is Map<*, *> -> mGson.toJson(baseStats)
-            is String -> baseStats
+        val attribute = data["attribute"]
+        val attributeJson = when (attribute) {
+            is Map<*, *> -> mGson.toJson(attribute)
+            is String -> attribute
             null -> "{}"
-            else -> mGson.toJson(baseStats)
+            else -> mGson.toJson(attribute)
         }
 
         return ItemTemplate(
             id = id,
             name = data["name"] as? String ?: throw IllegalArgumentException("Missing 'name'"),
-            type = ItemType.fromName(data["type"] as? String ?: throw IllegalArgumentException("Missing 'type'")),
-            subType = (data["subType"] as? String)?.let { ItemSubType.fromName(it) } ?: ItemSubType.WEAPON,
-            rarity = (data["rarity"] as? String)?.let { ItemRarity.fromName(it) } ?: ItemRarity.WHITE,
             stackable = data["stackable"] as? Boolean ?: true,
-            baseStats = baseStatsJson,
-            levelReq = (data["levelReq"] as? Number)?.toInt() ?: 0,
-            price = (data["price"] as? Number)?.toInt() ?: 0,
+            attribute = attributeJson,
             description = data["description"] as? String ?: ""
         )
     }

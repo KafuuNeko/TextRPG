@@ -17,11 +17,7 @@ class ItemInstanceEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<ItemInstanceEntity>(ItemInstances)
 
     var templateId by ItemInstances.templateId
-    var level by ItemInstances.level
-    var exp by ItemInstances.exp
-    var durability by ItemInstances.durability
-    var randomStats by ItemInstances.randomStats
-    var sockets by ItemInstances.sockets
+    var attribute by ItemInstances.attribute
     var creatorId by ItemInstances.creatorId
     var createdAt by ItemInstances.createdAt
 }

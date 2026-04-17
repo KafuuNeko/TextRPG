@@ -68,11 +68,7 @@ class ItemRepository(private val mDatabase: Database) :
         val existing = ItemInstanceEntity.findById(instance.id)
             ?: error("Instance not found: ${instance.id}")
         existing.apply {
-            level = instance.level
-            exp = instance.exp
-            durability = instance.durability
-            randomStats = instance.randomStats
-            sockets = instance.sockets
+            attribute = instance.attribute
         }.toInstance()
     }
 
@@ -173,11 +169,7 @@ class ItemRepository(private val mDatabase: Database) :
     private fun ItemInstanceEntity.toInstance() = ItemInstance(
         id = id.value,
         templateId = templateId,
-        level = level,
-        exp = exp,
-        durability = durability,
-        randomStats = randomStats,
-        sockets = sockets,
+        attribute = attribute,
         creatorId = creatorId,
         createdAt = createdAt
     )
