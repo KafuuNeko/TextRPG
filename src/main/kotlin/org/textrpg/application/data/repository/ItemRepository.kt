@@ -4,28 +4,27 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
-import org.textrpg.application.data.database.PlayerInventories
+import org.textrpg.application.data.database.PlayerItems
 import org.textrpg.application.domain.entity.ItemInstanceEntity
-import org.textrpg.application.domain.entity.PlayerInventoryEntity
+import org.textrpg.application.domain.entity.PlayerItemEntity
 import org.textrpg.application.domain.model.ItemInstance
-import org.textrpg.application.domain.model.PlayerInventoryItem
-import org.textrpg.application.domain.model.SlotType
+import org.textrpg.application.domain.model.PlayerItem
 
 /**
  * 物品仓储实现
  *
- * "模板 - 实例 - 背包"三层物品系统：
+ * "模板 - 实例 - 玩家物品"三层物品系统：
  * - [ItemTemplate] 存储静态配置（由 YAML 文件加载，通过 ItemTemplateRegistry 查询）
  * - [ItemInstance] 仅存储需要唯一属性的物品（装备强化/耐久等）
- * - [PlayerInventoryItem] 存储玩家持有的物品条目（关联模板 + 可选实例）
+ * - [PlayerItem] 存储玩家持有的物品条目（关联模板 + 可选实例）
  *
- * 堆叠物品（如药水）不在 [ItemInstances] 表生成记录，通过背包条目的 [PlayerInventoryItem.quantity] 表示。
- * 装备等唯一物品先在 [ItemInstances] 创建实例，再将实例 ID 存入背包条目。
+ * 堆叠物品（如药水）不在 [ItemInstances] 表生成记录，通过玩家物品条目的 [PlayerItem.quantity] 表示。
+ * 装备等唯一物品先在 [ItemInstances] 创建实例，再将实例 ID 存入玩家物品条目。
  *
  * @param mDatabase Exposed Database 实例
  */
 class ItemRepository(private val mDatabase: Database) :
-    IRepository<PlayerInventoryItem, Long> {
+    IRepository<PlayerItem, Long> {
 
     // ==================== 物品实例 ====================
 
@@ -72,94 +71,96 @@ class ItemRepository(private val mDatabase: Database) :
         }.toInstance()
     }
 
-    // ==================== 背包 ====================
+    // ==================== 玩家物品操作 ====================
 
     /**
-     * 根据 ID 查询背包条目
+     * 根据 ID 查询玩家物品条目
      *
-     * @param id 背包条目主键
-     * @return 背包条目，不存在则返回 null
+     * @param id 玩家物品条目主键
+     * @return 玩家物品条目，不存在则返回 null
      */
-    override fun findById(id: Long): PlayerInventoryItem? = transaction(mDatabase) {
-        PlayerInventoryEntity.findById(id)?.toInventory()
+    override fun findById(id: Long): PlayerItem? = transaction(mDatabase) {
+        PlayerItemEntity.findById(id)?.toPlayerItem()
     }
 
     /**
-     * 查询所有背包条目
+     * 查询所有玩家物品条目
      *
-     * @return 所有背包条目的列表
+     * @return 所有玩家物品条目的列表
      */
-    override fun findAll(): List<PlayerInventoryItem> = transaction(mDatabase) {
-        PlayerInventoryEntity.all().map { it.toInventory() }
+    override fun findAll(): List<PlayerItem> = transaction(mDatabase) {
+        PlayerItemEntity.all().map { it.toPlayerItem() }
     }
 
     /**
-     * 查询指定玩家的所有背包条目
+     * 查询指定玩家的所有物品条目
      *
      * @param playerId 玩家主键
-     * @return 该玩家的所有背包条目列表
+     * @return 该玩家的所有物品条目列表
      */
-    fun findByPlayerId(playerId: Long): List<PlayerInventoryItem> = transaction(mDatabase) {
-        PlayerInventoryEntity.find { PlayerInventories.playerId eq playerId }
-            .map { it.toInventory() }
+    fun findByPlayerId(playerId: Long): List<PlayerItem> = transaction(mDatabase) {
+        PlayerItemEntity.find { PlayerItems.playerId eq playerId }
+            .map { it.toPlayerItem() }
     }
 
     /**
-     * 查找可堆叠的背包空格
+     * 查找可堆叠的玩家物品空格
      *
-     * 用于堆叠物品（如药水）获取时，先检查是否已有未满的同模板格子，
+     * 用于堆叠物品（如药水）获取时，先检查是否已有未满的同一位置(slotType)同模板格子，
      * 有则合并，无则新增一行。
      *
      * @param playerId 玩家主键
      * @param templateId 物品模板 ID
-     * @return 可堆叠的空格，若不存在则返回 null
+     * @param slotType 物品存储位置（默认 "inventory"）
+     * @return 可堆叠的条目，若不存在则返回 null
      */
-    fun findStackableSlot(playerId: Long, templateId: String): PlayerInventoryItem? = transaction(mDatabase) {
-        PlayerInventoryEntity.find {
-            (PlayerInventories.playerId eq playerId) and
-            (PlayerInventories.templateId eq templateId) and
-            (PlayerInventories.instanceId.isNull())
-        }.firstOrNull()?.toInventory()
+    fun findStackableSlot(playerId: Long, templateId: String, slotType: String = "inventory"): PlayerItem? = transaction(mDatabase) {
+        PlayerItemEntity.find {
+            (PlayerItems.playerId eq playerId) and
+            (PlayerItems.templateId eq templateId) and
+            (PlayerItems.slotType eq slotType) and
+            (PlayerItems.instanceId.isNull())
+        }.firstOrNull()?.toPlayerItem()
     }
 
     /**
-     * 保存背包条目（新增或更新）
+     * 保存玩家物品条目（新增或更新）
      *
-     * @param entity 要保存的背包条目，id == 0 时为新增
+     * @param entity 要保存的条目，id == 0 时为新增
      * @return 保存后的条目（含数据库生成的主键）
      */
-    override fun save(entity: PlayerInventoryItem): PlayerInventoryItem = transaction(mDatabase) {
+    override fun save(entity: PlayerItem): PlayerItem = transaction(mDatabase) {
         if (entity.id == 0L) {
-            PlayerInventoryEntity.new {
+            PlayerItemEntity.new {
                 playerId = entity.playerId
                 templateId = entity.templateId
                 instanceId = entity.instanceId
                 quantity = entity.quantity
-                slotType = entity.slotType.value
+                slotType = entity.slotType
                 slotIndex = entity.slotIndex
                 isBound = entity.isBound
                 createdAt = DateTime.now()
-            }.toInventory()
+            }.toPlayerItem()
         } else {
-            val existing = PlayerInventoryEntity.findById(entity.id)
-                ?: error("Inventory item not found: ${entity.id}")
+            val existing = PlayerItemEntity.findById(entity.id)
+                ?: error("PlayerItem not found: ${entity.id}")
             existing.apply {
                 quantity = entity.quantity
-                slotType = entity.slotType.value
+                slotType = entity.slotType
                 slotIndex = entity.slotIndex
                 isBound = entity.isBound
-            }.toInventory()
+            }.toPlayerItem()
         }
     }
 
     /**
-     * 删除背包条目
+     * 删除玩家物品条目
      *
-     * @param id 要删除的背包条目主键
+     * @param id 要删除的条目主键
      * @return 是否删除成功
      */
     override fun delete(id: Long): Boolean = transaction(mDatabase) {
-        val entity = PlayerInventoryEntity.findById(id) ?: return@transaction false
+        val entity = PlayerItemEntity.findById(id) ?: return@transaction false
         entity.delete()
         true
     }
@@ -167,7 +168,7 @@ class ItemRepository(private val mDatabase: Database) :
     /**
      * 删除物品实例
      *
-     * 用于装备从背包移除时，同步清理 item_instances 表的记录。
+     * 用于装备从物品栏移除时，同步清理 item_instances 表的记录。
      *
      * @param id 实例主键
      * @return 是否删除成功
@@ -188,13 +189,13 @@ class ItemRepository(private val mDatabase: Database) :
         createdAt = createdAt
     )
 
-    private fun PlayerInventoryEntity.toInventory() = PlayerInventoryItem(
+    private fun PlayerItemEntity.toPlayerItem() = PlayerItem(
         id = id.value,
         playerId = playerId,
         templateId = templateId,
         instanceId = instanceId,
         quantity = quantity,
-        slotType = SlotType.fromValue(slotType),
+        slotType = slotType,
         slotIndex = slotIndex,
         isBound = isBound,
         createdAt = createdAt

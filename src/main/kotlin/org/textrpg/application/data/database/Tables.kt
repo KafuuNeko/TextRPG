@@ -10,12 +10,12 @@ object ItemInstances : LongIdTable("item_instances") {
     val createdAt = datetime("created_at")
 }
 
-object PlayerInventories : LongIdTable("player_inventories") {
+object PlayerItems : LongIdTable("player_items") {
     val playerId = long("player_id").index()
     val templateId = varchar("template_id", 128)
     val instanceId = long("instance_id").nullable().index()
     val quantity = integer("quantity").default(1)
-    val slotType = integer("slot_type").default(1)
+    val slotType = varchar("slot_type", 32).default("inventory")
     val slotIndex = integer("slot_index").default(0)
     val isBound = bool("is_bound").default(false)
     val createdAt = datetime("created_at")

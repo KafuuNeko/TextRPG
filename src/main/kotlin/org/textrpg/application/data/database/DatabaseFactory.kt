@@ -21,7 +21,7 @@ class DatabaseFactory(private val mConfig: DatabaseConfig) {
             SchemaUtils.createMissingTablesAndColumns(
                 Players,
                 ItemInstances,
-                PlayerInventories,
+                PlayerItems,
             )
         }
         println("Database initialized: ${mConfig.url}")
