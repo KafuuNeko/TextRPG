@@ -12,7 +12,7 @@ import javax.script.ScriptEngineManager
 class KotlinScriptRunner {
 
     /** JSR223 脚本引擎 */
-    private val scriptEngine = ScriptEngineManager().getEngineByName("kotlin")
+    private val mScriptEngine = ScriptEngineManager().getEngineByName("kotlin")
 
     /**
      * 脚本执行结果
@@ -40,13 +40,13 @@ class KotlinScriptRunner {
     fun executeScript(script: String, context: Map<String, Any?>): ScriptResult {
         return try {
             // 创建脚本绑定
-            val bindings = scriptEngine.createBindings()
+            val bindings = mScriptEngine.createBindings()
 
             // 注入上下文变量
             context.forEach { (key, value) -> bindings[key] = value }
 
             // 执行脚本
-            val evalResult = scriptEngine.eval(script, bindings)
+            val evalResult = mScriptEngine.eval(script, bindings)
 
             ScriptResult(
                 success = true,
@@ -72,7 +72,7 @@ class KotlinScriptRunner {
      */
     fun validateScript(script: String): Boolean {
         return try {
-            scriptEngine.eval(script)
+            mScriptEngine.eval(script)
             true
         } catch (e: Exception) {
             false

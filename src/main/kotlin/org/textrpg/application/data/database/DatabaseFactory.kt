@@ -7,12 +7,12 @@ import org.textrpg.application.data.config.DatabaseConfig
 
 class DatabaseFactory(private val config: DatabaseConfig) {
 
-    val database: Database by lazy {
+    val mDatabase: Database by lazy {
         Database.connect(url = config.url, driver = config.driver)
     }
 
     fun init() {
-        transaction(database) {
+        transaction(mDatabase) {
             SchemaUtils.createMissingTablesAndColumns(
                 Players,
                 ItemTemplates,

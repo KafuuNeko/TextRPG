@@ -11,7 +11,7 @@ val databaseModule = module {
     single {
         DatabaseFactory(get<AppConfig>().database).also { it.init() }
     }
-    single { get<DatabaseFactory>().database }
+    single { get<DatabaseFactory>().mDatabase }
 }
 
 val repositoryModule = module {

@@ -30,13 +30,13 @@ class WebSocketClient(
     private val config: OneBotConfig,
     private val httpClient: HttpClient
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var session: DefaultClientWebSocketSession? = null
-    private val pendingRequests = ConcurrentHashMap<String, CompletableDeferred<JsonObject>>()
-    private val listenerIdCounter = AtomicLong(1)
-    private val listeners = ConcurrentHashMap<ListenerId, (MessageEvent) -> Unit>()
-    private var isConnecting = false
-    private var shouldReconnect = true
+    private val mScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var mSession: DefaultClientWebSocketSession? = null
+    private val mPendingRequests = ConcurrentHashMap<String, CompletableDeferred<JsonObject>>()
+    private val mListenerIdCounter = AtomicLong(1)
+    private val mListeners = ConcurrentHashMap<ListenerId, (MessageEvent) -> Unit>()
+    private var mIsConnecting = false
+    private var mShouldReconnect = true
 
     /**
      * 是否已连接
@@ -49,15 +49,15 @@ class WebSocketClient(
      * 连接 WebSocket
      */
     suspend fun connect() {
-        if (isConnecting || isConnected) return
-        isConnecting = true
-        shouldReconnect = true
+        if (mIsConnecting || isConnected) return
+        mIsConnecting = true
+        mShouldReconnect = true
 
         try {
             httpClient.webSocket(urlString = config.websocketUrl) {
-                session = this
+                mSession = this
                 isConnected = true
-                isConnecting = false
+                mIsConnecting = false
                 println("WebSocket connected to ${config.websocketUrl}")
 
                 for (frame in incoming) {
@@ -72,9 +72,9 @@ class WebSocketClient(
             }
         } catch (e: Exception) {
             isConnected = false
-            isConnecting = false
-            if (shouldReconnect) {
-                scope.launch {
+            mIsConnecting = false
+            if (mShouldReconnect) {
+                mScope.launch {
                     delay(config.reconnectInterval)
                     connect()
                 }
@@ -87,12 +87,12 @@ class WebSocketClient(
      * 断开连接
      */
     fun disconnect() {
-        shouldReconnect = false
-        scope.cancel()
-        session?.cancel()
-        session = null
+        mShouldReconnect = false
+        mScope.cancel()
+        mSession?.cancel()
+        mSession = null
         isConnected = false
-        isConnecting = false
+        mIsConnecting = false
     }
 
     /**
@@ -102,8 +102,8 @@ class WebSocketClient(
      * @return 监听器 ID，用于取消注册
      */
     fun registerMessageListener(listener: (MessageEvent) -> Unit): ListenerId {
-        val id = ListenerId(listenerIdCounter.getAndIncrement())
-        listeners[id] = listener
+        val id = ListenerId(mListenerIdCounter.getAndIncrement())
+        mListeners[id] = listener
         return id
     }
 
@@ -114,7 +114,7 @@ class WebSocketClient(
      * @return 是否成功取消
      */
     fun unregisterMessageListener(id: ListenerId): Boolean {
-        return listeners.remove(id) != null
+        return mListeners.remove(id) != null
     }
 
     /**
@@ -154,7 +154,7 @@ class WebSocketClient(
             rawEvent = json
         )
 
-        listeners.values.forEach { it.invoke(event) }
+        mListeners.values.forEach { it.invoke(event) }
     }
 
     /**
@@ -173,7 +173,7 @@ class WebSocketClient(
      */
     private fun handleApiResponse(json: JsonObject) {
         val echo = json["echo"]?.jsonPrimitive?.contentOrNull ?: return
-        pendingRequests.remove(echo)?.complete(json)
+        mPendingRequests.remove(echo)?.complete(json)
     }
 
     /**
@@ -212,7 +212,7 @@ class WebSocketClient(
     suspend fun sendRequest(action: String, params: JsonObject): JsonObject? {
         val echo = System.currentTimeMillis().toString() + "_" + (0..9999).random()
         val deferred = CompletableDeferred<JsonObject>()
-        pendingRequests[echo] = deferred
+        mPendingRequests[echo] = deferred
 
         val payload = buildJsonObject {
             put("action", action)
@@ -220,12 +220,12 @@ class WebSocketClient(
             put("params", params)
         }
 
-        session?.send(Frame.Text(payload.toString()))
+        mSession?.send(Frame.Text(payload.toString()))
 
         return try {
             withTimeout(30000) { deferred.await() }
         } catch (e: Exception) {
-            pendingRequests.remove(echo)
+            mPendingRequests.remove(echo)
             null
         }
     }

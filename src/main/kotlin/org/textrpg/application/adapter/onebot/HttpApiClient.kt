@@ -32,28 +32,28 @@ data class HttpApiResult(
  * @property config OneBot 配置
  */
 class HttpApiClient(private val config: OneBotConfig) {
-    private val client = HttpClient {
+    private val mClient = HttpClient {
         install(HttpTimeout) {
             requestTimeoutMillis = 30000
             connectTimeoutMillis = 10000
         }
     }
 
-    private val json = Json {
+    private val mJson = Json {
         ignoreUnknownKeys = true
         isLenient = true
     }
 
-    private val mutex = Mutex()
-    private var echoCounter = 0L
+    private val mMutex = Mutex()
+    private var mEchoCounter = 0L
 
     /**
      * 获取新的 echo 值
      */
     private suspend fun nextEcho(): String {
-        mutex.withLock {
-            echoCounter++
-            return "http_${System.currentTimeMillis()}_$echoCounter"
+        mMutex.withLock {
+            mEchoCounter++
+            return "http_${System.currentTimeMillis()}_$mEchoCounter"
         }
     }
 
@@ -125,7 +125,7 @@ class HttpApiClient(private val config: OneBotConfig) {
         val result = callApi("get_msg", buildJsonObject { put("message_id", JsonPrimitive(messageId)) })
         return if (result.success && result.data != null) {
             try {
-                json.decodeFromString<MessageInfo>(result.data.toString())
+                mJson.decodeFromString<MessageInfo>(result.data.toString())
             } catch (e: Exception) {
                 null
             }
@@ -153,7 +153,7 @@ class HttpApiClient(private val config: OneBotConfig) {
         val result = callApi("get_stranger_info", buildJsonObject { put("user_id", JsonPrimitive(userId)) })
         return if (result.success && result.data != null) {
             try {
-                json.decodeFromString<UserInfo>(result.data.toString())
+                mJson.decodeFromString<UserInfo>(result.data.toString())
             } catch (e: Exception) {
                 null
             }
@@ -174,7 +174,7 @@ class HttpApiClient(private val config: OneBotConfig) {
         })
         return if (result.success && result.data != null) {
             try {
-                json.decodeFromString<GroupInfo>(result.data.toString())
+                mJson.decodeFromString<GroupInfo>(result.data.toString())
             } catch (e: Exception) {
                 null
             }
@@ -190,7 +190,7 @@ class HttpApiClient(private val config: OneBotConfig) {
         val result = callApi("get_group_list", buildJsonObject { })
         return if (result.success && result.data != null) {
             try {
-                json.decodeFromString<List<GroupInfo>>(result.data.toString())
+                mJson.decodeFromString<List<GroupInfo>>(result.data.toString())
             } catch (e: Exception) {
                 emptyList()
             }
@@ -213,7 +213,7 @@ class HttpApiClient(private val config: OneBotConfig) {
         })
         return if (result.success && result.data != null) {
             try {
-                json.decodeFromString<GroupMemberInfo>(result.data.toString())
+                mJson.decodeFromString<GroupMemberInfo>(result.data.toString())
             } catch (e: Exception) {
                 null
             }
@@ -230,7 +230,7 @@ class HttpApiClient(private val config: OneBotConfig) {
         val result = callApi("get_group_member_list", buildJsonObject { put("group_id", JsonPrimitive(groupId)) })
         return if (result.success && result.data != null) {
             try {
-                json.decodeFromString<List<GroupMemberInfo>>(result.data.toString())
+                mJson.decodeFromString<List<GroupMemberInfo>>(result.data.toString())
             } catch (e: Exception) {
                 emptyList()
             }
@@ -251,7 +251,7 @@ class HttpApiClient(private val config: OneBotConfig) {
                 put("params", params)
             }
 
-            val response = client.post("${config.httpUrl}/api") {
+            val response = mClient.post("${config.httpUrl}/api") {
                 contentType(ContentType.Application.Json)
                 header("Authorization", config.accessToken?.let { "Bearer $it" })
                 setBody(requestBody.toString())
@@ -259,7 +259,7 @@ class HttpApiClient(private val config: OneBotConfig) {
 
             if (response.status.isSuccess()) {
                 val body = response.body<String>()
-                val jsonResponse = json.parseToJsonElement(body).jsonObject
+                val jsonResponse = mJson.parseToJsonElement(body).jsonObject
                 val retcode = jsonResponse["retcode"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
                 HttpApiResult(
                     success = retcode == 0,
@@ -289,6 +289,6 @@ class HttpApiClient(private val config: OneBotConfig) {
      * 关闭客户端
      */
     fun close() {
-        client.close()
+        mClient.close()
     }
 }

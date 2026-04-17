@@ -20,9 +20,9 @@ class OpenAIClient(
     private val config: AppConfig,
     private val httpClient: HttpClient,
 ) : LLMClient {
-    private val gson: Gson = Gson()
+    private val mGson: Gson = Gson()
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val mScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /**
      * 生成文本
@@ -49,12 +49,12 @@ class OpenAIClient(
             val response = httpClient.post(config.llm.apiUrl) {
                 contentType(ContentType.Application.Json)
                 header("Authorization", "Bearer ${config.llm.apiKey}")
-                setBody(gson.toJson(requestBody))
+                setBody(mGson.toJson(requestBody))
             }
 
             if (response.status.isSuccess()) {
                 val body = response.bodyAsText()
-                val json = gson.fromJson(body, JsonObject::class.java)
+                val json = mGson.fromJson(body, JsonObject::class.java)
                 val responseText = json
                     .getAsJsonArray("choices")
                     ?.firstOrNull()
@@ -73,7 +73,7 @@ class OpenAIClient(
     }
 
     override fun shutdown() {
-        scope.cancel()
+        mScope.cancel()
     }
 
     private fun LLMMessage.toJson(): JsonObject = when (this) {
