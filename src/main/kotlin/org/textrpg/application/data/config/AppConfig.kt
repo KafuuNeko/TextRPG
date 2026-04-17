@@ -24,7 +24,7 @@ data class AppConfig(
  */
 @Serializable
 data class DatabaseConfig(
-    var url: String = "jdbc:sqlite:textrpg.db",
+    var url: String = "jdbc:sqlite:resources/database/master.sqlite",
     var driver: String = "org.sqlite.JDBC"
 )
 
@@ -92,7 +92,7 @@ object ConfigLoader {
      * @return 解析后的 AppConfig 实例
      * @throws Exception 当文件不存在或 YAML 解析失败时
      */
-    fun load(path: String = "src/main/resources/config/app.yaml"): AppConfig {
+    fun load(path: String = "resources/config/app.yaml"): AppConfig {
         val file = File(path)
         if (!file.exists()) {
             return AppConfig()
@@ -110,7 +110,7 @@ object ConfigLoader {
      * @param path 配置文件路径
      * @return AppConfig 实例（解析失败时返回默认配置）
      */
-    fun loadOrDefault(path: String = "src/main/resources/config/app.yaml"): AppConfig {
+    fun loadOrDefault(path: String = "resources/config/app.yaml"): AppConfig {
         return try {
             load(path)
         } catch (e: Exception) {

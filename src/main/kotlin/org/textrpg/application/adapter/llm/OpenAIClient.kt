@@ -17,8 +17,8 @@ import org.textrpg.application.data.config.AppConfig
  * 实现 LLMClient 接口，使用 OpenAI Chat Completions API 格式
  */
 class OpenAIClient(
-    private val config: AppConfig,
-    private val httpClient: HttpClient,
+    private val mConfig: AppConfig,
+    private val mHttpClient: HttpClient,
 ) : LLMClient {
     private val mGson: Gson = Gson()
 
@@ -33,22 +33,22 @@ class OpenAIClient(
      * @return Result，包含生成的文本或错误信息
      */
     override suspend fun generate(messages: List<LLMMessage>): Result<String> {
-        if (!config.llm.enabled) {
+        if (!mConfig.llm.enabled) {
             return Result.failure(Exception("LLM is disabled"))
         }
 
         return try {
             val requestBody = JsonObject().apply {
-                addProperty("model", config.llm.model)
+                addProperty("model", mConfig.llm.model)
                 add("messages", JsonArray().apply {
                     messages.forEach { add(it.toJson()) }
                 })
                 addProperty("stream", false)
             }
 
-            val response = httpClient.post(config.llm.apiUrl) {
+            val response = mHttpClient.post(mConfig.llm.apiUrl) {
                 contentType(ContentType.Application.Json)
-                header("Authorization", "Bearer ${config.llm.apiKey}")
+                header("Authorization", "Bearer ${mConfig.llm.apiKey}")
                 setBody(mGson.toJson(requestBody))
             }
 

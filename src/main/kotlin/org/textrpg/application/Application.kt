@@ -1,5 +1,6 @@
 package org.textrpg.application
 
+import com.google.gson.Gson
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -12,6 +13,7 @@ import org.textrpg.application.data.config.AppConfig
 import org.textrpg.application.data.config.ConfigLoader
 import org.textrpg.application.data.databaseModule
 import org.textrpg.application.data.repositoryModule
+import org.textrpg.application.data.staticDataModule
 import org.textrpg.application.utils.script.KotlinScriptRunner
 import org.textrpg.application.adapter.onebot.OneBotAdapter
 import org.textrpg.application.adapter.onebot.OneBotConfig as OneBotAdapterConfig
@@ -20,9 +22,13 @@ import org.koin.core.component.get
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import org.yaml.snakeyaml.Yaml
 
 object Application : KoinComponent {
     private val appModules = module {
+        single<Gson> { Gson() }
+        single<Yaml> { Yaml() }
+
         single<HttpClient> {
             HttpClient(CIO) {
                 install(ContentNegotiation) {
@@ -41,12 +47,12 @@ object Application : KoinComponent {
         single<OneBotAdapter> {
             val appConfig: AppConfig = get()
             OneBotAdapter(
-                config = OneBotAdapterConfig(
+                mConfig = OneBotAdapterConfig(
                     websocketUrl = appConfig.bot.websocketUrl,
                     httpUrl = appConfig.bot.httpUrl,
                     accessToken = appConfig.bot.accessToken.takeIf { it.isNotBlank() }
                 ),
-                httpClient = get()
+                mHttpClient = get()
             )
         }
 
@@ -54,7 +60,7 @@ object Application : KoinComponent {
     }
 
     init {
-        startKoin { modules(appModules, databaseModule, repositoryModule) }
+        startKoin { modules(appModules, databaseModule, repositoryModule, staticDataModule) }
     }
 
     suspend fun loop() {

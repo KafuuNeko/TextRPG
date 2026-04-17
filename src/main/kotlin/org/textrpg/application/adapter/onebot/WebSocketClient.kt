@@ -23,12 +23,12 @@ interface WebSocketEventCallback {
  *
  * 通过 WebSocket 接收 OneBot 事件推送
  *
- * @property config OneBot 配置
- * @property httpClient Ktor HTTP 客户端
+ * @property mConfig OneBot 配置
+ * @property mHttpClient Ktor HTTP 客户端
  */
 class WebSocketClient(
-    private val config: OneBotConfig,
-    private val httpClient: HttpClient
+    private val mConfig: OneBotConfig,
+    private val mHttpClient: HttpClient
 ) {
     private val mScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var mSession: DefaultClientWebSocketSession? = null
@@ -54,11 +54,11 @@ class WebSocketClient(
         mShouldReconnect = true
 
         try {
-            httpClient.webSocket(urlString = config.websocketUrl) {
+            mHttpClient.webSocket(urlString = mConfig.websocketUrl) {
                 mSession = this
                 isConnected = true
                 mIsConnecting = false
-                println("WebSocket connected to ${config.websocketUrl}")
+                println("WebSocket connected to ${mConfig.websocketUrl}")
 
                 for (frame in incoming) {
                     when (frame) {
@@ -75,7 +75,7 @@ class WebSocketClient(
             mIsConnecting = false
             if (mShouldReconnect) {
                 mScope.launch {
-                    delay(config.reconnectInterval)
+                    delay(mConfig.reconnectInterval)
                     connect()
                 }
             }

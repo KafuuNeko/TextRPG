@@ -8,8 +8,8 @@ import kotlinx.coroutines.*
  *
  * 统一外观类，管理 WebSocket 客户端和 HTTP API 客户端
  *
- * @property config OneBot 配置
- * @property httpClient Ktor HTTP 客户端（可选，默认创建新客户端）
+ * @property mConfig OneBot 配置
+ * @property mHttpClient Ktor HTTP 客户端（可选，默认创建新客户端）
  *
  * @example
  * ```kotlin
@@ -27,14 +27,14 @@ import kotlinx.coroutines.*
  * ```
  */
 class OneBotAdapter(
-    val config: OneBotConfig,
-    private val httpClient: HttpClient? = null
+    private val mConfig: OneBotConfig,
+    private val mHttpClient: HttpClient? = null
 ) {
-    private val mClient = httpClient ?: HttpClient()
+    private val mClient = mHttpClient ?: HttpClient()
     private val mScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private val mWsClient: WebSocketClient = WebSocketClient(config, mClient)
-    private val mHttpApiClient: HttpApiClient = HttpApiClient(config)
+    private val mWsClient: WebSocketClient = WebSocketClient(mConfig, mClient)
+    private val mHttpApiClient: HttpApiClient = HttpApiClient(mConfig)
 
     private val mListeners = mutableListOf<ListenerId>()
 
@@ -226,7 +226,7 @@ class OneBotAdapter(
     fun close() {
         disconnect()
         mHttpApiClient.close()
-        if (httpClient == null) {
+        if (mHttpClient == null) {
             mClient.close()
         }
     }

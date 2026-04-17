@@ -11,6 +11,7 @@ enum class ItemType(val value: Int) {
 
     companion object {
         fun fromValue(value: Int): ItemType = entries.first { it.value == value }
+        fun fromName(name: String): ItemType = valueOf(name.uppercase())
     }
 }
 
@@ -24,6 +25,7 @@ enum class ItemSubType(val value: Int) {
 
     companion object {
         fun fromValue(value: Int): ItemSubType = entries.first { it.value == value }
+        fun fromName(name: String): ItemSubType = valueOf(name.uppercase())
     }
 }
 
@@ -39,6 +41,7 @@ enum class ItemRarity(val value: Int) {
 
     companion object {
         fun fromValue(value: Int): ItemRarity = entries.first { it.value == value }
+        fun fromName(name: String): ItemRarity = valueOf(name.uppercase())
     }
 }
 

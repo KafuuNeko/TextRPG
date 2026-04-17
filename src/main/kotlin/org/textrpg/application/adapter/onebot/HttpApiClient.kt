@@ -29,9 +29,9 @@ data class HttpApiResult(
  *
  * 用于调用 OneBot HTTP API
  *
- * @property config OneBot 配置
+ * @property mConfig OneBot 配置
  */
-class HttpApiClient(private val config: OneBotConfig) {
+class HttpApiClient(private val mConfig: OneBotConfig) {
     private val mClient = HttpClient {
         install(HttpTimeout) {
             requestTimeoutMillis = 30000
@@ -251,9 +251,9 @@ class HttpApiClient(private val config: OneBotConfig) {
                 put("params", params)
             }
 
-            val response = mClient.post("${config.httpUrl}/api") {
+            val response = mClient.post("${mConfig.httpUrl}/api") {
                 contentType(ContentType.Application.Json)
-                header("Authorization", config.accessToken?.let { "Bearer $it" })
+                header("Authorization", mConfig.accessToken?.let { "Bearer $it" })
                 setBody(requestBody.toString())
             }
 

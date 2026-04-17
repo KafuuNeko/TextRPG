@@ -10,5 +10,5 @@ llm:
   timeout: 60000
 
 database:
-  url: "jdbc:sqlite:master.sqlite"
+  url: "jdbc:sqlite:resources/database/master.sqlite"
   driver: "org.sqlite.JDBC"
