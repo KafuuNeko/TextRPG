@@ -7,6 +7,8 @@ import org.textrpg.application.data.database.DatabaseFactory
 import org.textrpg.application.data.repository.ItemRepository
 import org.textrpg.application.data.repository.PlayerRepository
 import org.textrpg.application.data.registry.ItemTemplateRegistry
+import org.textrpg.application.data.manager.ItemManager
+import org.textrpg.application.data.manager.PlayerManager
 
 val databaseModule = module {
     single {
@@ -22,4 +24,9 @@ val repositoryModule = module {
 
 val staticDataModule = module {
     singleOf(::ItemTemplateRegistry)
+}
+
+val managerModule = module {
+    singleOf(::ItemManager)
+    singleOf(::PlayerManager)
 }

@@ -164,6 +164,20 @@ class ItemRepository(private val mDatabase: Database) :
         true
     }
 
+    /**
+     * 删除物品实例
+     *
+     * 用于装备从背包移除时，同步清理 item_instances 表的记录。
+     *
+     * @param id 实例主键
+     * @return 是否删除成功
+     */
+    fun deleteInstance(id: Long): Boolean = transaction(mDatabase) {
+        val entity = ItemInstanceEntity.findById(id) ?: return@transaction false
+        entity.delete()
+        true
+    }
+
     // ==================== 辅助方法 ====================
 
     private fun ItemInstanceEntity.toInstance() = ItemInstance(

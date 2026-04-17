@@ -14,6 +14,7 @@ import org.textrpg.application.data.config.ConfigLoader
 import org.textrpg.application.data.databaseModule
 import org.textrpg.application.data.repositoryModule
 import org.textrpg.application.data.staticDataModule
+import org.textrpg.application.data.managerModule
 import org.textrpg.application.utils.script.KotlinScriptRunner
 import org.textrpg.application.adapter.onebot.OneBotAdapter
 import org.textrpg.application.adapter.onebot.OneBotConfig as OneBotAdapterConfig
@@ -60,7 +61,7 @@ object Application : KoinComponent {
     }
 
     init {
-        startKoin { modules(appModules, databaseModule, repositoryModule, staticDataModule) }
+        startKoin { modules(appModules, databaseModule, repositoryModule, staticDataModule, managerModule) }
     }
 
     suspend fun loop() {
