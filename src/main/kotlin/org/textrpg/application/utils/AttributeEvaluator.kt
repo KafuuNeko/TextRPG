@@ -1,4 +1,4 @@
-package org.textrpg.application.domain.service
+package org.textrpg.application.utils
 
 /**
  * 属性表达式计算器

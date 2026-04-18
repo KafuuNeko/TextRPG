@@ -5,7 +5,7 @@ import org.textrpg.application.data.repository.PlayerAttributeRepository
 import org.textrpg.application.data.config.PlayerAttributeConfig
 import org.textrpg.application.domain.model.Player
 import org.textrpg.application.domain.model.PlayerAttribute
-import org.textrpg.application.domain.service.AttributeEvaluator
+import org.textrpg.application.utils.AttributeEvaluator
 
 /**
  * 玩家管理器——玩家模块的统一数据操作入口
