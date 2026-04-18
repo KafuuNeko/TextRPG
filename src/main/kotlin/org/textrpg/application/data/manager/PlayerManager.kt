@@ -91,14 +91,18 @@ class PlayerManager(
      * 获取玩家所有的属性（包含基础属性和拓展属性的计算结果）
      * 
      * @param playerId 玩家ID
+     * @param cache 用于在当前查询上下文中缓存计算结果
      * @return 包含所有已定义属性的列表
      */
-    fun getAllAttributes(playerId: Long): List<PlayerAttribute> {
+    fun getAllAttributes(
+        playerId: Long,
+        cache: MutableMap<String, PlayerAttribute> = mutableMapOf()
+    ): List<PlayerAttribute> {
         val result = mutableListOf<PlayerAttribute>()
         // 获取所有的键（基于配置文件）
         val allKeys = mPlayerAttributeConfig.basicAttributes.keys + mPlayerAttributeConfig.extendedAttributes.keys
         for (key in allKeys) {
-            result.add(getAttribute(playerId, key))
+            result.add(getAttribute(playerId, key, cache))
         }
         return result
     }
@@ -106,34 +110,48 @@ class PlayerManager(
     /**
      * 获取玩家某个属性值
      *
-     * 如果是拓展属性，需要自动计算后返回值。
+     * 如果是拓展属性，需要自动计算后返回值。计算过程中会利用 cache 避免重复求值。
      * 否则优先从 repository 查找，没有则从 yaml 中取默认值。
      *
      * @param playerId 玩家ID
      * @param attributeName 属性名
+     * @param cache 用于在当前查询上下文中缓存计算结果
      * @return 对应属性的值（类型为 PlayerAttribute），若未定义则返回默认值 0.0 所构造的实体
      */
-    fun getAttribute(playerId: Long, attributeName: String): PlayerAttribute {
+    fun getAttribute(
+        playerId: Long, 
+        attributeName: String, 
+        cache: MutableMap<String, PlayerAttribute> = mutableMapOf()
+    ): PlayerAttribute {
+        cache[attributeName]?.let { return it }
+
         val extendedAttr = mPlayerAttributeConfig.extendedAttributes[attributeName]
         if (extendedAttr != null) {
             // 自动计算，需要递归提供数值
             val calcValue = AttributeEvaluator.evaluate(extendedAttr.expression) { varName ->
-                getAttribute(playerId, varName).value
+                getAttribute(playerId, varName, cache).value
             }
-            return PlayerAttribute(id = playerId, name = attributeName, value = calcValue)
+            val result = PlayerAttribute(id = playerId, name = attributeName, value = calcValue)
+            cache[attributeName] = result
+            return result
         }
 
         val dbValue = mPlayerAttributeRepository.getAttribute(playerId, attributeName)
         if (dbValue != null) {
+            cache[attributeName] = dbValue
             return dbValue
         }
 
         val basicAttr = mPlayerAttributeConfig.basicAttributes[attributeName]
         if (basicAttr != null) {
-            return PlayerAttribute(id = playerId, name = attributeName, value = basicAttr.defaultValue)
+            val result = PlayerAttribute(id = playerId, name = attributeName, value = basicAttr.defaultValue)
+            cache[attributeName] = result
+            return result
         }
 
-        return PlayerAttribute(id = playerId, name = attributeName, value = 0.0)
+        val emptyResult = PlayerAttribute(id = playerId, name = attributeName, value = 0.0)
+        cache[attributeName] = emptyResult
+        return emptyResult
     }
 
     /**
