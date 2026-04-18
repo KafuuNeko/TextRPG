@@ -23,6 +23,7 @@ import org.koin.core.component.get
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import org.textrpg.application.data.configModules
 import org.yaml.snakeyaml.Yaml
 
 object Application : KoinComponent {
@@ -37,10 +38,6 @@ object Application : KoinComponent {
                 }
                 install(WebSockets)
             }
-        }
-
-        single<AppConfig> {
-            ConfigLoader.loadOrDefault()
         }
 
         singleOf(::KotlinScriptRunner)
@@ -61,7 +58,13 @@ object Application : KoinComponent {
     }
 
     init {
-        startKoin { modules(appModules, databaseModule, repositoryModule, staticDataModule, managerModule) }
+        startKoin {
+            modules(
+                appModules,
+                configModules, databaseModule, repositoryModule, staticDataModule,
+                managerModule
+            )
+        }
     }
 
     suspend fun loop() {

@@ -27,3 +27,11 @@ object Players : LongIdTable("players") {
     val createdAt = datetime("created_at")
     val updatedAt = datetime("updated_at")
 }
+
+object PlayerAttributes : org.jetbrains.exposed.sql.Table("player_attributes") {
+    val id = long("id").references(Players.id)
+    val name = varchar("name", 64)
+    val value = double("value")
+
+    override val primaryKey = PrimaryKey(id, name)
+}

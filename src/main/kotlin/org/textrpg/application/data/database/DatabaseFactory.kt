@@ -22,6 +22,7 @@ class DatabaseFactory(private val mConfig: DatabaseConfig) {
                 Players,
                 ItemInstances,
                 PlayerItems,
+                PlayerAttributes
             )
         }
         println("Database initialized: ${mConfig.url}")

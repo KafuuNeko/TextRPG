@@ -1,0 +1,39 @@
+basic:
+  hp:
+    name: "当前生命值"
+    default: 100.0
+  mp:
+    name: "当前魔法值"
+    default: 100.0
+  hp_max:
+    name: "最大生命值"
+    default: 100.0
+  mp_max:
+    name: "最大魔法值"
+    default: 100.0
+  str:
+    name: "力量"
+    default: 10.0
+  agi:
+    name: "敏捷"
+    default: 10.0
+  vit:
+    name: "体质"
+    default: 10.0
+  int:
+    name: "智力"
+    default: 10.0
+
+extended:
+  atk:
+    name: "物理攻击力"
+    expression: "str * 2.0"
+  def:
+    name: "物理防御力"
+    expression: "vit * 1.5"
+  matk:
+    name: "魔法攻击力"
+    expression: "int * 2.0"
+  mdef:
+    name: "魔法防御力"
+    expression: "int * 1.0 + vit * 0.5"

@@ -1,7 +1,11 @@
 package org.textrpg.application.data.manager
 
 import org.textrpg.application.data.repository.PlayerRepository
+import org.textrpg.application.data.repository.PlayerAttributeRepository
+import org.textrpg.application.data.config.PlayerAttributeConfig
 import org.textrpg.application.domain.model.Player
+import org.textrpg.application.domain.model.PlayerAttribute
+import org.textrpg.application.domain.service.AttributeEvaluator
 
 /**
  * 玩家管理器——玩家模块的统一数据操作入口
@@ -10,9 +14,13 @@ import org.textrpg.application.domain.model.Player
  * 外部模块操作玩家数据时，应通过此管理器而非直接调用 Repository。
  *
  * @param mPlayerRepository 玩家仓储（数据库操作）
+ * @param mPlayerAttributeRepository 玩家属性仓储
+ * @param mPlayerAttributeConfig 玩家属性配置
  */
 class PlayerManager(
-    private val mPlayerRepository: PlayerRepository
+    private val mPlayerRepository: PlayerRepository,
+    private val mPlayerAttributeRepository: PlayerAttributeRepository,
+    private val mPlayerAttributeConfig: PlayerAttributeConfig
 ) {
 
     /**
@@ -77,5 +85,78 @@ class PlayerManager(
      */
     fun deletePlayer(id: Long): Boolean {
         return mPlayerRepository.delete(id)
+    }
+
+    /**
+     * 获取玩家所有的属性（包含基础属性和拓展属性的计算结果）
+     * 
+     * @param playerId 玩家ID
+     * @return 包含所有已定义属性的列表
+     */
+    fun getAllAttributes(playerId: Long): List<PlayerAttribute> {
+        val result = mutableListOf<PlayerAttribute>()
+        // 获取所有的键（基于配置文件）
+        val allKeys = mPlayerAttributeConfig.basicAttributes.keys + mPlayerAttributeConfig.extendedAttributes.keys
+        for (key in allKeys) {
+            result.add(getAttribute(playerId, key))
+        }
+        return result
+    }
+
+    /**
+     * 获取玩家某个属性值
+     *
+     * 如果是拓展属性，需要自动计算后返回值。
+     * 否则优先从 repository 查找，没有则从 yaml 中取默认值。
+     *
+     * @param playerId 玩家ID
+     * @param attributeName 属性名
+     * @return 对应属性的值（类型为 PlayerAttribute），若未定义则返回默认值 0.0 所构造的实体
+     */
+    fun getAttribute(playerId: Long, attributeName: String): PlayerAttribute {
+        val extendedAttr = mPlayerAttributeConfig.extendedAttributes[attributeName]
+        if (extendedAttr != null) {
+            // 自动计算，需要递归提供数值
+            val calcValue = AttributeEvaluator.evaluate(extendedAttr.expression) { varName ->
+                getAttribute(playerId, varName).value
+            }
+            return PlayerAttribute(id = playerId, name = attributeName, value = calcValue)
+        }
+
+        val dbValue = mPlayerAttributeRepository.getAttribute(playerId, attributeName)
+        if (dbValue != null) {
+            return dbValue
+        }
+
+        val basicAttr = mPlayerAttributeConfig.basicAttributes[attributeName]
+        if (basicAttr != null) {
+            return PlayerAttribute(id = playerId, name = attributeName, value = basicAttr.defaultValue)
+        }
+
+        return PlayerAttribute(id = playerId, name = attributeName, value = 0.0)
+    }
+
+    /**
+     * 更新玩家某个属性值
+     *
+     * 仅支持基础属性的持久化更新。
+     *
+     * @param attribute 要更新的属性实例
+     * @throws IllegalArgumentException 如果尝试更新的属性不是基础属性
+     */
+    fun updateAttribute(attribute: PlayerAttribute) {
+        if (!mPlayerAttributeConfig.basicAttributes.containsKey(attribute.name)) {
+            throw IllegalArgumentException("Only basic attributes can be updated. Attribute ${attribute.name} is not a valid basic attribute.")
+        }
+        mPlayerAttributeRepository.saveAttribute(attribute)
+    }
+
+    /**
+     * 删除玩家属性
+     *
+     * @param attribute 要删除的属性实例
+     */
+    fun deleteAttribute(attribute: PlayerAttribute): Boolean {
+        return mPlayerAttributeRepository.deleteAttribute(attribute)
     }
 }

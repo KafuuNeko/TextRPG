@@ -82,9 +82,9 @@ data class LLMConfig(
  * println("LLM API: ${config.llm.apiUrl}")
  * ```
  */
-object ConfigLoader {
-    private val yaml = Yaml()
-
+data class ConfigLoader(
+    private val mYaml: Yaml
+) {
     /**
      * 从指定路径加载配置
      *
@@ -98,7 +98,7 @@ object ConfigLoader {
             return AppConfig()
         }
         val content = file.readText()
-        return yaml.loadAs(content, AppConfig::class.java)
+        return mYaml.loadAs(content, AppConfig::class.java)
     }
 
     /**
