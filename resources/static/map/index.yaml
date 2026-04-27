@@ -1,0 +1,103 @@
+mapIds:
+  - novice_village
+  - wheat_field
+  - forest_edge
+  - river_crossing
+  - old_mine
+  - wolf_ridge
+connections:
+  novice_village:
+    - targetMapId: wheat_field
+      attribute:
+        distance: 180
+        travelTime: 60
+        roadType: stone_road
+        dangerLevel: safe
+        staminaCost: 1
+  wheat_field:
+    - targetMapId: novice_village
+      attribute:
+        distance: 180
+        travelTime: 60
+        roadType: stone_road
+        dangerLevel: safe
+        staminaCost: 1
+    - targetMapId: forest_edge
+      attribute:
+        distance: 260
+        travelTime: 90
+        roadType: dirt_path
+        dangerLevel: low
+        staminaCost: 2
+    - targetMapId: river_crossing
+      attribute:
+        distance: 320
+        travelTime: 120
+        roadType: river_bank
+        dangerLevel: low
+        staminaCost: 2
+  forest_edge:
+    - targetMapId: wheat_field
+      attribute:
+        distance: 260
+        travelTime: 90
+        roadType: dirt_path
+        dangerLevel: low
+        staminaCost: 2
+    - targetMapId: old_mine
+      attribute:
+        distance: 420
+        travelTime: 180
+        roadType: rocky_trail
+        dangerLevel: medium
+        staminaCost: 4
+        condition:
+          quest: mine_investigation
+    - targetMapId: wolf_ridge
+      attribute:
+        distance: 500
+        travelTime: 240
+        roadType: steep_mountain_path
+        dangerLevel: high
+        staminaCost: 5
+        recommendedLevel: 5
+  river_crossing:
+    - targetMapId: wheat_field
+      attribute:
+        distance: 320
+        travelTime: 120
+        roadType: river_bank
+        dangerLevel: low
+        staminaCost: 2
+    - targetMapId: old_mine
+      attribute:
+        distance: 360
+        travelTime: 150
+        roadType: ferry_and_tunnel
+        dangerLevel: medium
+        staminaCost: 3
+        feeCopper: 15
+  old_mine:
+    - targetMapId: forest_edge
+      attribute:
+        distance: 420
+        travelTime: 180
+        roadType: rocky_trail
+        dangerLevel: medium
+        staminaCost: 4
+    - targetMapId: river_crossing
+      attribute:
+        distance: 360
+        travelTime: 150
+        roadType: tunnel_and_ferry
+        dangerLevel: medium
+        staminaCost: 3
+  wolf_ridge:
+    - targetMapId: river_crossing
+      attribute:
+        distance: 540
+        travelTime: 210
+        roadType: cliff_descent
+        dangerLevel: high
+        staminaCost: 4
+        note: one_way_descent

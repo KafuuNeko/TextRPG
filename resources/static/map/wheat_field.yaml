@@ -1,0 +1,15 @@
+name: "金穗麦田"
+attribute:
+  type: field
+  region: greenfield_plain
+  dangerLevel: low
+  levelRange:
+    min: 1
+    max: 4
+  monsters:
+    - field_mouse
+    - scarecrow_spirit
+  resources:
+    - wheat
+    - herb
+description: "大片成熟麦浪随风起伏，田埂间偶尔有迷路的野兽出没，是村民赖以生存的粮食产地。"

@@ -1,0 +1,15 @@
+name: "河谷渡口"
+attribute:
+  type: transit_hub
+  region: stonewater_valley
+  dangerLevel: low
+  levelRange:
+    min: 2
+    max: 5
+  services:
+    - ferry
+    - supply_cart
+  tags:
+    - waterway
+    - trade_route
+description: "一处依靠木桥残骸与摆渡小船维持交通的河谷节点，来往商队会在这里短暂停留并交换消息。"

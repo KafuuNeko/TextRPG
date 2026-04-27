@@ -1,0 +1,16 @@
+name: "灰杉林地边缘"
+attribute:
+  type: wilderness
+  region: grey_fir_forest
+  dangerLevel: medium
+  levelRange:
+    min: 3
+    max: 6
+  monsters:
+    - wild_wolf
+    - thorn_slime
+    - forest_spider
+  weather:
+    fog: frequent
+    rain: common
+description: "林木在这里迅速变得高大而阴沉，脚下是潮湿的腐叶层，再往深处走便不再有稳定的巡逻路线。"

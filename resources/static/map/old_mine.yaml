@@ -1,0 +1,16 @@
+name: "废弃矿洞"
+attribute:
+  type: dungeon
+  region: blackrock_hills
+  dangerLevel: high
+  levelRange:
+    min: 5
+    max: 8
+  monsters:
+    - cave_bat
+    - ore_eater
+    - rogue_miner_spirit
+  resources:
+    - iron_ore
+    - copper_ore
+description: "曾经繁忙的矿井早已停工，塌方与黑暗让这里变得危险，但未被完全开采的矿脉仍吸引着冒险者深入。"

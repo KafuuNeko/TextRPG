@@ -8,10 +8,14 @@ import org.textrpg.application.data.config.PlayerAttributeConfig
 import org.textrpg.application.data.config.PlayerAttributeConfigLoader
 import org.textrpg.application.data.database.DatabaseFactory
 import org.textrpg.application.data.repository.ItemRepository
+import org.textrpg.application.data.repository.MapRepository
 import org.textrpg.application.data.repository.PlayerRepository
 import org.textrpg.application.data.repository.PlayerAttributeRepository
 import org.textrpg.application.data.registry.ItemTemplateRegistry
+import org.textrpg.application.data.registry.MapConnectionRegistry
+import org.textrpg.application.data.registry.MapTemplateRegistry
 import org.textrpg.application.data.manager.ItemManager
+import org.textrpg.application.data.manager.MapManager
 import org.textrpg.application.data.manager.PlayerManager
 
 val configModules = module {
@@ -35,13 +39,17 @@ val repositoryModule = module {
     singleOf(::PlayerRepository)
     singleOf(::PlayerAttributeRepository)
     singleOf(::ItemRepository)
+    singleOf(::MapRepository)
 }
 
 val staticDataModule = module {
     singleOf(::ItemTemplateRegistry)
+    singleOf(::MapConnectionRegistry)
+    singleOf(::MapTemplateRegistry)
 }
 
 val managerModule = module {
     singleOf(::ItemManager)
+    singleOf(::MapManager)
     singleOf(::PlayerManager)
 }

@@ -1,0 +1,16 @@
+name: "群狼山脊"
+attribute:
+  type: highland
+  region: fangridge
+  dangerLevel: high
+  levelRange:
+    min: 5
+    max: 7
+  monsters:
+    - ridge_wolf
+    - alpha_wolf
+    - carrion_hawk
+  tags:
+    - overlook
+    - one_way_exit
+description: "狭窄山脊终日有狼群徘徊，向下俯瞰可以看到河谷，但陡峭碎石坡让原路折返并不容易。"

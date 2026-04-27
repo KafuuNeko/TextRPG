@@ -20,6 +20,9 @@ class DatabaseFactory(private val mConfig: DatabaseConfig) {
         transaction(mDatabase) {
             SchemaUtils.createMissingTablesAndColumns(
                 Players,
+                MapPlayers,
+                MapPlayerAttributes,
+                MapAttributes,
                 ItemInstances,
                 PlayerItems,
                 PlayerAttributes

@@ -28,6 +28,30 @@ object Players : LongIdTable("players") {
     val updatedAt = datetime("updated_at")
 }
 
+object MapPlayers : org.jetbrains.exposed.sql.Table("map_players") {
+    val mapId = varchar("map_id", 128)
+    val playerId = long("player_id").references(Players.id).uniqueIndex()
+
+    override val primaryKey = PrimaryKey(mapId, playerId)
+}
+
+object MapPlayerAttributes : org.jetbrains.exposed.sql.Table("map_player_attributes") {
+    val mapId = varchar("map_id", 128)
+    val playerId = long("player_id").references(Players.id)
+    val name = varchar("name", 64)
+    val value = text("value")
+
+    override val primaryKey = PrimaryKey(mapId, playerId, name)
+}
+
+object MapAttributes : org.jetbrains.exposed.sql.Table("map_attributes") {
+    val mapId = varchar("map_id", 128)
+    val name = varchar("name", 64)
+    val value = text("value")
+
+    override val primaryKey = PrimaryKey(mapId, name)
+}
+
 object PlayerAttributes : org.jetbrains.exposed.sql.Table("player_attributes") {
     val id = long("id").references(Players.id)
     val name = varchar("name", 64)
